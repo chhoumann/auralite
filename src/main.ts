@@ -110,8 +110,14 @@ export default class OVSPlugin extends Plugin {
 	}
 
 	override onunload() {
-		this.audioRecorder.cancel();
-		this.audioRecorder.teardown();
+		try {
+			if (this.audioRecorder) {
+				this.audioRecorder.cancel();
+				this.audioRecorder.teardown();
+			}
+		} catch (error) {
+			console.error("Error during plugin unload:", error);
+		}
 	}
 
 	async loadSettings() {
