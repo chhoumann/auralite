@@ -22,7 +22,7 @@ export default class OVSPlugin extends Plugin {
 	private audioRecorder: AudioRecorder = new AudioRecorder();
 	private aiManager!: AIManager;
 	private _isRecording = false;
-	private recordingNotice: Notice | null = null;
+	private statusNotice: Notice | null = null;
 	private waveformVisualizer: WaveformVisualizer | null = null;
 
 	public get isRecording(): boolean {
@@ -71,8 +71,8 @@ export default class OVSPlugin extends Plugin {
 		this.registerEvent(
 			this.audioRecorder.on("recordingStarted", () => {
 				console.log("Recording started");
-				this.recordingNotice = new Notice("", 99999999);
-				this.createWaveform(this.recordingNotice.noticeEl.createEl("div"));
+				this.statusNotice = new Notice("", 99999999);
+				this.createWaveform(this.statusNotice.noticeEl.createEl("div"));
 			}),
 		);
 
@@ -82,8 +82,8 @@ export default class OVSPlugin extends Plugin {
 				async (buffer: ArrayBuffer) => {
 					console.log("Recording complete");
 					await this.processRecording(buffer);
-					this.recordingNotice?.hide();
-					this.recordingNotice = null;
+					this.statusNotice?.hide();
+					this.statusNotice = null;
 					this.stopWaveform();
 				},
 			),
@@ -92,12 +92,13 @@ export default class OVSPlugin extends Plugin {
 		this.registerEvent(
 			this.audioRecorder.on("error", (error: unknown) => {
 				console.error("Recording error:", error);
-				this.recordingNotice?.setMessage(
+				this.statusNotice?.setMessage(
 					`Error during recording: ${error instanceof Error ? error.message : String(error)}`,
 				);
 				setTimeout(() => {
-					this.recordingNotice?.hide();
-					this.recordingNotice = null;
+					this.stopWaveform();
+					this.statusNotice?.hide();
+					this.statusNotice = null;
 				}, 5000);
 			}),
 		);
