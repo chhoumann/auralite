@@ -1,20 +1,17 @@
 {
   "name": "ovs",
   "version": "0.0.1",
-  "description": "",
   "author": "Christian Bager Bach Houmann",
-  "type": "commonjs",
-  "main": "main.js",
-  "license": "MIT",
-  "scripts": {
-    "dev": "bun ./esbuild.config.mjs",
-    "build": "bun ./esbuild.config.mjs production",
-    "lint": "bunx biome lint src build.ts version-bump.ts",
-    "format": "bunx biome format src build.ts version-bump.ts --write",
-    "check": "bunx @biomejs/biome check --apply src build.ts version-bump.ts && bun run type-check",
-    "version": "bun ./version-bump.ts && git add manifest.json versions.json",
-    "semantic-release": "semantic-release"
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chhoumann/ovs.git"
   },
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
+  },
+  "main": "main.js",
   "devDependencies": {
     "@biomejs/biome": "^1.8.3",
     "@semantic-release/git": "^10.0.1",
@@ -29,14 +26,16 @@
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/chhoumann/ovs.git"
+  "description": "",
+  "license": "MIT",
+  "scripts": {
+    "dev": "bun ./esbuild.config.mjs",
+    "build": "bun ./esbuild.config.mjs production",
+    "lint": "bunx biome lint src build.ts version-bump.ts",
+    "format": "bunx biome format src build.ts version-bump.ts --write",
+    "check": "bunx @biomejs/biome check --apply src build.ts version-bump.ts && bun run type-check",
+    "version": "bun ./version-bump.ts && git add manifest.json versions.json",
+    "semantic-release": "semantic-release"
   },
-  "config": {
-    "commitizen": {
-      "path": "./node_modules/cz-conventional-changelog"
-    }
-  },
-  "dependencies": {}
+  "type": "commonjs"
 }
