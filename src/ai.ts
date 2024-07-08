@@ -1,15 +1,17 @@
 import Instructor from "@instructor-ai/instructor";
 import OpenAI from "openai";
 import { z } from "zod";
-import type { ActionContext } from "./actions/Action";
 import type OVSPlugin from "./main";
+import type { Stream } from "openai/streaming";
+import { ContextBuilder } from "./ContextBuilder";
 
 export class AIManager {
 	private oai: OpenAI;
 	private client: ReturnType<typeof Instructor>;
-	private plugin!: OVSPlugin;
+	private plugin: OVSPlugin;
 	private actionIds: string[];
 	private abortController: AbortController | null = null;
+	private contextBuilder: ContextBuilder;
 
 	constructor(plugin: OVSPlugin, actionIDs: string[]) {
 		this.plugin = plugin;
@@ -24,6 +26,15 @@ export class AIManager {
 		});
 
 		this.actionIds = actionIDs;
+		this.contextBuilder = new ContextBuilder(plugin);
+	}
+
+	getOpenAI(): OpenAI {
+		return this.oai;
+	}
+
+	getInstructorClient(): ReturnType<typeof Instructor> {
+		return this.client;
 	}
 
 	async transcribeAudio(audioBuffer: ArrayBuffer): Promise<string> {
@@ -48,18 +59,14 @@ export class AIManager {
 		}
 	}
 
-	async executeAction(action: string, initialInput: Map<string, unknown>) {
+	async executeAction(
+		action: string,
+		initialInput: Map<string, unknown>,
+		editorState: ReturnType<typeof ContextBuilder.prototype.captureEditorState>,
+	) {
 		this.abortController = new AbortController();
-
-		const context: ActionContext = {
-			app: this.plugin.app,
-			plugin: this.plugin,
-			oai: this.oai,
-			ai: this,
-			client: this.client,
-			results: initialInput,
-			abortSignal: this.abortController.signal,
-		};
+		const context = this.contextBuilder.build(this, initialInput, editorState);
+		context.abortSignal = this.abortController.signal;
 
 		try {
 			await this.plugin.actionManager.executeAction(action, context);
@@ -72,7 +79,10 @@ export class AIManager {
 		}
 	}
 
-	async run(userInput: string) {
+	async run(
+		userInput: string,
+		editorState: ReturnType<typeof ContextBuilder.prototype.captureEditorState>,
+	) {
 		const actionSchema = z.object({
 			action: z
 				.enum(this.actionIds as [string, ...string[]])
@@ -96,7 +106,7 @@ export class AIManager {
 		input.set("action", actionResult.action);
 		input.set("userInput", userInput);
 
-		this.executeAction(actionResult.action, input);
+		this.executeAction(actionResult.action, input, editorState);
 	}
 
 	async createChatCompletion<TSchema extends z.AnyZodObject>(
@@ -125,6 +135,37 @@ export class AIManager {
 			}
 			console.error("Error creating chat completion:", error);
 			throw new Error("Failed to create chat completion");
+		}
+	}
+
+	async createChatCompletionStream<TSchema extends z.AnyZodObject>(
+		schema: TSchema,
+		messages: Array<{ role: string; content: string }>,
+	): Promise<Stream<z.infer<TSchema>>> {
+		this.abortController = new AbortController();
+		try {
+			const stream = await this.client.chat.completions.create(
+				{
+					messages,
+					model: "gpt-4",
+					response_model: {
+						schema: schema,
+						name: "User",
+					},
+					stream: true,
+				},
+				{ signal: this.abortController.signal },
+			);
+
+			//@ts-ignore: don't want to type this rn
+			return stream;
+		} catch (error: unknown) {
+			if (error instanceof Error && error.name === "AbortError") {
+				console.log("Chat completion stream was cancelled");
+				throw new Error("Chat completion stream cancelled");
+			}
+			console.error("Error creating chat completion stream:", error);
+			throw new Error("Failed to create chat completion stream");
 		}
 	}
 

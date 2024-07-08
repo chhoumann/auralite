@@ -14,11 +14,12 @@ import { ActionManager } from "./actions/ActionManager";
 import { AIManager } from "./ai";
 import { registerCommands } from "./commands";
 import { WaveformVisualizer } from "./components/WaveformVisualizer";
+import { ContextBuilder } from "./ContextBuilder";
 
 export default class OVSPlugin extends Plugin {
 	settings!: OVSPluginSettings;
 	actionManager!: ActionManager;
-
+	contextBuilder!: ContextBuilder;
 	private audioRecorder: AudioRecorder = new AudioRecorder();
 	private aiManager!: AIManager;
 	private _isRecording = false;
@@ -38,6 +39,7 @@ export default class OVSPlugin extends Plugin {
 		this.actionManager.registerAction(new TranscribeAction());
 
 		this.aiManager = new AIManager(this, this.actionManager.getAllActionIds());
+		this.contextBuilder = new ContextBuilder(this);
 
 		registerCommands(this);
 
@@ -121,6 +123,7 @@ export default class OVSPlugin extends Plugin {
 
 	private async processRecording(audioBuffer: ArrayBuffer) {
 		try {
+			const editorState = this.contextBuilder.captureEditorState();
 			const transcription = await this.aiManager.transcribeAudio(audioBuffer);
 
 			const filePath = "dev/transcription.md";
@@ -135,7 +138,7 @@ export default class OVSPlugin extends Plugin {
 				});
 			}
 
-			await this.aiManager.run(transcription);
+			await this.aiManager.run(transcription, editorState);
 		} catch (error) {
 			console.error("Error processing recording:", error);
 		}

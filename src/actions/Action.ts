@@ -2,10 +2,11 @@ import type { AIManager } from "@/ai";
 import type OVSPlugin from "@/main";
 import { openFile } from "@/obsidianUtils";
 import type Instructor from "@instructor-ai/instructor";
-import { type App, type EditorPosition, MarkdownView } from "obsidian";
+import type { Editor, App, EditorPosition, View } from "obsidian";
 import type OpenAI from "openai";
 import { z } from "zod";
 import { removeWhitespace } from "./removeWhitespace";
+import type { Stream } from "openai/streaming";
 
 export interface ActionContext {
 	plugin: OVSPlugin;
@@ -15,6 +16,13 @@ export interface ActionContext {
 	client: ReturnType<typeof Instructor>;
 	results: Map<string, unknown>;
 	abortSignal: AbortSignal;
+	state: {
+		editor: {
+			activeView?: View;
+			activeEditor?: Editor;
+			cursor?: EditorPosition;
+		};
+	};
 }
 
 export abstract class Action<TInput extends z.AnyZodObject> {
@@ -22,6 +30,7 @@ export abstract class Action<TInput extends z.AnyZodObject> {
 		readonly id: string,
 		readonly inputSchema: TInput,
 		readonly systemPrompt: string,
+		readonly supportsStreaming: boolean = false,
 	) {}
 
 	async execute(context: ActionContext): Promise<void> {
@@ -40,13 +49,20 @@ export abstract class Action<TInput extends z.AnyZodObject> {
 		];
 
 		console.log(msgs);
-		const input = await context.ai.createChatCompletion(this.inputSchema, msgs);
 
-		if (context.abortSignal.aborted) {
-			throw new Error("Action cancelled");
+		if (this.supportsStreaming) {
+			const stream = await context.ai.createChatCompletionStream(
+				this.inputSchema,
+				msgs,
+			);
+			await this.performActionStream(stream, context);
+		} else {
+			const input = await context.ai.createChatCompletion(
+				this.inputSchema,
+				msgs,
+			);
+			await this.performAction(input, context);
 		}
-
-		await this.performAction(input, context);
 	}
 
 	protected async preExecute(context: ActionContext): Promise<void> {}
@@ -55,6 +71,13 @@ export abstract class Action<TInput extends z.AnyZodObject> {
 		input: z.infer<TInput>,
 		context: ActionContext,
 	): Promise<void>;
+
+	protected performActionStream(
+		stream: Stream<z.infer<TInput>>,
+		context: ActionContext,
+	): Promise<void> {
+		throw new Error("Streaming not implemented for this action");
+	}
 }
 
 export class CompositeAction extends Action<z.AnyZodObject> {
@@ -222,40 +245,80 @@ export class TranscribeAction extends Action<
 			Remove the part where the user asked you to transcribe the audio and focus actual content.
         `);
 
-	private activeView: MarkdownView | null = null;
-	private cursor: EditorPosition | null = null;
+	private activeView?: View;
+	private cursor?: EditorPosition;
+	private activeEditor?: Editor;
 
 	constructor() {
 		super(
 			"transcribe",
 			TranscribeAction.inputSchema,
 			TranscribeAction.systemPrompt,
+			true,
 		);
 	}
 
 	protected override async preExecute(context: ActionContext): Promise<void> {
-		const { app } = context;
-		this.activeView = app.workspace.getActiveViewOfType(MarkdownView);
+		const {
+			state: {
+				editor: { activeView, cursor, activeEditor },
+			},
+		} = context;
+		this.activeView = activeView;
 
 		if (!this.activeView) {
 			console.error("No active Markdown view");
 			return;
 		}
 
-		this.cursor = this.activeView.editor.getCursor();
+		this.cursor = cursor;
+		this.activeEditor = activeEditor;
 	}
 
 	protected async performAction(
 		input: z.infer<typeof TranscribeAction.inputSchema>,
 		context: ActionContext,
 	): Promise<void> {
-		if (!this.activeView || !this.cursor) {
+		if (!this.activeView || !this.cursor || !this.activeEditor) {
 			console.error("No active Markdown view or cursor position");
 			return;
 		}
 
-		const editor = this.activeView.editor;
+		this.activeEditor.replaceRange(input.transcription, this.cursor);
+	}
 
-		editor.replaceRange(input.transcription, this.cursor);
+	protected override async performActionStream(
+		stream: Stream<z.infer<typeof TranscribeAction.inputSchema>>,
+		context: ActionContext,
+	): Promise<void> {
+		if (!this.activeView || !this.cursor || !this.activeEditor) {
+			console.error("No active Markdown view or cursor position");
+			return;
+		}
+		let fullTranscription = "";
+		let lastInsertedLength = 0;
+
+		for await (const chunk of stream) {
+			if (context.abortSignal.aborted) {
+				throw new Error("Action cancelled");
+			}
+
+			if (chunk.transcription) {
+				// Append the new chunk to the full transcription
+				fullTranscription = chunk.transcription;
+
+				// Calculate the new content to insert
+				const newContent = fullTranscription.slice(lastInsertedLength);
+
+				if (newContent) {
+					// Insert only the new content
+					this.activeEditor.replaceRange(newContent, this.cursor);
+					this.cursor.ch += newContent.length;
+					lastInsertedLength += newContent.length;
+				}
+			}
+		}
+
+		context.results.set(this.id, { transcription: fullTranscription });
 	}
 }
