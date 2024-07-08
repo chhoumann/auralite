@@ -31,4 +31,6 @@ ${Array.from(firstTimeContributors)
 	return "";
 }
 
-module.exports = firstTimeContributor;
+module.exports = {
+	generateNotes: firstTimeContributor,
+};

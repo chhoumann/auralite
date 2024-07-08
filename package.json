@@ -23,71 +23,20 @@
     "esbuild-plugin-copy": "^2.1.1",
     "git-contributors": "^0.2.5",
     "obsidian": "^1.5.7-1",
-    "semantic-release": "^24.0.0"
+    "semantic-release": "^24.0.0",
+    "builtin-modules": "^4.0.0"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/chhoumann/PodNotes.git"
+    "url": "https://github.com/chhoumann/ovs.git"
   },
   "config": {
     "commitizen": {
       "path": "./node_modules/cz-conventional-changelog"
     }
   },
-  "release": {
-    "tagFormat": "${version}",
-    "plugins": [
-      [
-        "@semantic-release/commit-analyzer",
-        {
-          "releaseRules": [
-            {
-              "type": "chore",
-              "release": "patch"
-            }
-          ]
-        }
-      ],
-      "@semantic-release/release-notes-generator",
-      [
-        "@semantic-release/npm",
-        {
-          "npmPublish": false
-        }
-      ],
-      [
-        "@semantic-release/git",
-        {
-          "assets": [
-            "package.json",
-            "package-lock.json",
-            "manifest.json",
-            "versions.json"
-          ],
-          "message": "release(version): Release ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
-        }
-      ],
-      [
-        "@semantic-release/github",
-        {
-          "assets": [
-            {
-              "path": "main.js",
-              "label": "main.js"
-            },
-            {
-              "path": "manifest.json",
-              "label": "manifest.json"
-            }
-          ]
-        }
-      ]
-    ]
-  },
-  "dependencies": {
-    "builtin-modules": "^4.0.0"
-  }
+  "dependencies": {}
 }
