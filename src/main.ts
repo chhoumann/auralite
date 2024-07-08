@@ -43,7 +43,6 @@ export default class OVSPlugin extends Plugin {
 
 		this.addSettingTab(new OVSSettingTab(this.app, this));
 
-		// Replace the existing ribbon icon with a push-to-talk button
 		this.addRibbonIcon("mic", "Push to talk", (evt: MouseEvent) => {
 			if (evt.type === "mousedown") {
 				this.startRecording();
@@ -52,8 +51,6 @@ export default class OVSPlugin extends Plugin {
 			}
 		});
 
-		// Add event listeners for the push-to-talk button
-		// Register the push-to-talk button
 		const ribbonIcon = this.addRibbonIcon("mic", "Push to talk", () => {});
 		this.registerDomEvent(
 			ribbonIcon,
@@ -69,38 +66,21 @@ export default class OVSPlugin extends Plugin {
 
 		// Register event listeners for the AudioRecorder
 		this.registerEvent(
-			this.audioRecorder.on("recordingStarted", () => {
-				console.log("Recording started");
-				this.statusNotice = new Notice("", 99999999);
-				this.createWaveform(this.statusNotice.noticeEl.createEl("div"));
-			}),
+			this.audioRecorder.on(
+				"recordingStarted",
+				this.onRecordingStarted.bind(this),
+			),
 		);
 
 		this.registerEvent(
 			this.audioRecorder.on(
 				"recordingComplete",
-				async (buffer: ArrayBuffer) => {
-					console.log("Recording complete");
-					await this.processRecording(buffer);
-					this.statusNotice?.hide();
-					this.statusNotice = null;
-					this.stopWaveform();
-				},
+				this.onRecordingComplete.bind(this),
 			),
 		);
 
 		this.registerEvent(
-			this.audioRecorder.on("error", (error: unknown) => {
-				console.error("Recording error:", error);
-				this.statusNotice?.setMessage(
-					`Error during recording: ${error instanceof Error ? error.message : String(error)}`,
-				);
-				setTimeout(() => {
-					this.stopWaveform();
-					this.statusNotice?.hide();
-					this.statusNotice = null;
-				}, 5000);
-			}),
+			this.audioRecorder.on("error", this.onRecordingError.bind(this)),
 		);
 	}
 
@@ -184,5 +164,31 @@ export default class OVSPlugin extends Plugin {
 			this.waveformVisualizer.stop();
 			this.waveformVisualizer = null;
 		}
+	}
+
+	private onRecordingStarted = () => {
+		console.log("Recording started");
+		this.statusNotice = new Notice("", 99999999);
+		this.createWaveform(this.statusNotice.noticeEl.createEl("div"));
+	};
+
+	private async onRecordingComplete(buffer: ArrayBuffer): Promise<void> {
+		console.log("Recording complete");
+		await this.processRecording(buffer);
+		this.statusNotice?.hide();
+		this.statusNotice = null;
+		this.stopWaveform();
+	}
+
+	private async onRecordingError(error: unknown): Promise<void> {
+		console.error("Recording error:", error);
+		this.statusNotice?.setMessage(
+			`Error during recording: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		setTimeout(() => {
+			this.stopWaveform();
+			this.statusNotice?.hide();
+			this.statusNotice = null;
+		}, 5000);
 	}
 }
