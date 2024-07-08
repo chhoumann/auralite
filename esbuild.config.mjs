@@ -45,8 +45,12 @@ const options = Object.freeze({
 	outdir,
 	plugins: [
 		copy({
-			targets: [{ src: "manifest.json", dest: outdir }],
-			verbose: true,
+			assets: [
+				{
+					from: ["manifest.json"],
+					to: ["manifest.json"],
+				},
+			],
 		}),
 	],
 });
