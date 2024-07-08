@@ -152,12 +152,16 @@ export default class OVSPlugin extends Plugin {
 			const filePath = "dev/transcription.md";
 			const file = this.app.vault.getAbstractFileByPath(filePath);
 			if (file && file instanceof TFile) {
-				await this.app.vault.modify(file, transcription);
+				this.app.vault.modify(file, transcription).catch((error) => {
+					console.error("Error modifying file:", error);
+				});
 			} else {
-				await this.app.vault.create(filePath, transcription);
+				this.app.vault.create(filePath, transcription).catch((error) => {
+					console.error("Error creating file:", error);
+				});
 			}
 
-			this.aiManager.run(transcription);
+			await this.aiManager.run(transcription);
 		} catch (error) {
 			console.error("Error processing recording:", error);
 		}
