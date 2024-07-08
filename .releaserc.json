@@ -80,7 +80,6 @@
                 }
             }
         ],
-        "./first-time-contributors.js",
         [
             "@semantic-release/npm",
             {
@@ -111,7 +110,14 @@
                         "path": "out/manifest.json",
                         "label": "manifest.json"
                     }
-                ]
+                ],
+                "successComment": "This ${issue.pull_request ? 'pull request' : 'issue'} is included in version ${nextRelease.version}",
+                "failTitle": "The automated release failed",
+                "failComment": "The automated release failed. Please check the [workflow run]({workflow_run_url}) for more details.",
+                "releasedLabels": [
+                    "released"
+                ],
+                "addReleases": "bottom"
             }
         ]
     ]

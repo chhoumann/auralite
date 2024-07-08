@@ -16,12 +16,12 @@
     "@biomejs/biome": "^1.8.3",
     "@semantic-release/git": "^10.0.1",
     "@types/bun": "latest",
+    "builtin-modules": "^4.0.0",
     "esbuild": "^0.23.0",
     "esbuild-plugin-copy": "^2.1.1",
     "git-contributors": "^0.2.5",
     "obsidian": "^1.5.7-1",
-    "semantic-release": "^24.0.0",
-    "builtin-modules": "^4.0.0"
+    "semantic-release": "^24.0.0"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
