@@ -49,8 +49,6 @@ export class AIManager {
 			results: initialInput,
 		};
 
-		console.log(context);
-
 		this.plugin.actionManager.executeAction(action, context);
 	}
 

@@ -1,6 +1,6 @@
 import type { AIManager } from "@/ai";
 import type OVSPlugin from "@/main";
-import { NewTabDirection, openFile } from "@/obsidianUtils";
+import { openFile } from "@/obsidianUtils";
 import type Instructor from "@instructor-ai/instructor";
 import type { App } from "obsidian";
 import type OpenAI from "openai";
@@ -82,7 +82,26 @@ export class CreateNoteAction extends Action<
 			.describe(
 				"The name of the note to create. Must be a valid markdown filename.",
 			),
-		content: z.string().optional(),
+		content: z.string().optional().describe("The content of the note."),
+		paneType: z
+			.enum(["tab", "split", "window"])
+			.optional()
+			.default("tab")
+			.describe("The type of pane to open the file in."),
+		direction: z
+			.enum(["horizontal", "vertical"])
+			.optional()
+			.describe("The direction to split the pane, if paneType is 'split'."),
+		mode: z
+			.enum(["source", "preview", "default"])
+			.optional()
+			.default("default")
+			.describe("The view mode to open the file in."),
+		focus: z
+			.boolean()
+			.optional()
+			.default(true)
+			.describe("Whether to focus the file after opening."),
 	});
 
 	static systemPrompt = removeWhitespace(`You are an expert at creating notes in Obsidian.
@@ -108,18 +127,18 @@ export class CreateNoteAction extends Action<
 		input: z.infer<typeof CreateNoteAction.inputSchema>,
 		context: ActionContext,
 	): Promise<void> {
+		console.log("Creating note:", input);
+
 		const note = await context.app.vault.create(
 			`dev/${input.noteName}`,
 			input.content || "",
 		);
 
-		console.log("Created note:", note);
-
 		openFile(context.app, note, {
-			openInNewTab: false,
-			direction: NewTabDirection.horizontal,
-			mode: "default",
-			focus: true,
+			paneType: input.paneType,
+			direction: input.direction,
+			mode: input.mode,
+			focus: input.focus,
 		});
 
 		context.results.set(this.id, {
