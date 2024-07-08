@@ -18,6 +18,9 @@ const options = Object.freeze({
 	},
 	entryPoints: ["src/main.ts"],
 	bundle: true,
+	define: {
+		__IS_DEV__: (!prod).toString(),
+	},
 	external: [
 		"obsidian",
 		"electron",
