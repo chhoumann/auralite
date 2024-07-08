@@ -2,7 +2,7 @@ import type { AIManager } from "@/ai";
 import type OVSPlugin from "@/main";
 import { openFile } from "@/obsidianUtils";
 import type Instructor from "@instructor-ai/instructor";
-import type { App } from "obsidian";
+import { type App, type EditorPosition, MarkdownView } from "obsidian";
 import type OpenAI from "openai";
 import { z } from "zod";
 import { removeWhitespace } from "./removeWhitespace";
@@ -24,6 +24,8 @@ export abstract class Action<TInput extends z.AnyZodObject> {
 	) {}
 
 	async execute(context: ActionContext): Promise<void> {
+		await this.preExecute(context);
+
 		const msgs = [
 			{ role: "system", content: this.systemPrompt },
 			{
@@ -31,10 +33,13 @@ export abstract class Action<TInput extends z.AnyZodObject> {
 				content: `## Context:\n${JSON.stringify(Object.fromEntries(context.results))}`,
 			},
 		];
+
 		console.log(msgs);
 		const input = await context.ai.createChatCompletion(this.inputSchema, msgs);
 		await this.performAction(input, context);
 	}
+
+	protected async preExecute(context: ActionContext): Promise<void> {}
 
 	protected abstract performAction(
 		input: z.infer<TInput>,
@@ -67,9 +72,7 @@ export class CompositeAction extends Action<z.AnyZodObject> {
 	protected async performAction(
 		_input: z.infer<z.AnyZodObject>,
 		_context: ActionContext,
-	): Promise<void> {
-		// This method is not used in CompositeAction, but is required by the abstract class
-	}
+	): Promise<void> {}
 }
 
 export class CreateNoteAction extends Action<
@@ -165,5 +168,64 @@ export class NoopAction extends Action<typeof NoopAction.inputSchema> {
 	): Promise<void> {
 		// This action intentionally does nothing
 		console.log("Noop action executed");
+	}
+}
+
+export class TranscribeAction extends Action<
+	typeof TranscribeAction.inputSchema
+> {
+	static inputSchema = z.object({
+		transcription: z
+			.string()
+			.describe("The formatted transcription of the audio."),
+	});
+
+	static systemPrompt = removeWhitespace(`You format transcribed audio to be more readable.
+
+            As an AI assistant within Obsidian, your primary goal is to help users manage their ideas and knowledge more effectively.
+            Format your responses using Markdown syntax.
+            Please use the [[Obsidian]] link format.
+            You can write aliases for the links by writing [[Obsidian|the alias after the pipe symbol]].
+
+			The user has already provided you with the transcription of the audio, in "userInput".
+			You need to format the transcription in a way that is easy for the user to understand.
+			Remove the part where the user asked you to transcribe the audio and focus actual content.
+        `);
+
+	private activeView: MarkdownView | null = null;
+	private cursor: EditorPosition | null = null;
+
+	constructor() {
+		super(
+			"transcribe",
+			TranscribeAction.inputSchema,
+			TranscribeAction.systemPrompt,
+		);
+	}
+
+	protected override async preExecute(context: ActionContext): Promise<void> {
+		const { app } = context;
+		this.activeView = app.workspace.getActiveViewOfType(MarkdownView);
+
+		if (!this.activeView) {
+			console.error("No active Markdown view");
+			return;
+		}
+
+		this.cursor = this.activeView.editor.getCursor();
+	}
+
+	protected async performAction(
+		input: z.infer<typeof TranscribeAction.inputSchema>,
+		context: ActionContext,
+	): Promise<void> {
+		if (!this.activeView || !this.cursor) {
+			console.error("No active Markdown view or cursor position");
+			return;
+		}
+
+		const editor = this.activeView.editor;
+
+		editor.replaceRange(input.transcription, this.cursor);
 	}
 }

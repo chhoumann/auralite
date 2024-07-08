@@ -5,7 +5,11 @@ import {
 	type OVSPluginSettings,
 	OVSSettingTab,
 } from "./OVSSettingTab";
-import { CreateNoteAction, NoopAction } from "./actions/Action";
+import {
+	CreateNoteAction,
+	NoopAction,
+	TranscribeAction,
+} from "./actions/Action";
 import { ActionManager } from "./actions/ActionManager";
 import { AIManager } from "./ai";
 import { registerCommands } from "./commands";
@@ -16,7 +20,11 @@ export default class OVSPlugin extends Plugin {
 
 	private audioRecorder: AudioRecorder = new AudioRecorder();
 	private aiManager!: AIManager;
-	private isRecording = false;
+	private _isRecording = false;
+
+	public get isRecording(): boolean {
+		return this._isRecording;
+	}
 
 	override async onload() {
 		await this.loadSettings();
@@ -24,6 +32,7 @@ export default class OVSPlugin extends Plugin {
 
 		this.actionManager.registerAction(new CreateNoteAction());
 		this.actionManager.registerAction(new NoopAction());
+		this.actionManager.registerAction(new TranscribeAction());
 
 		this.aiManager = new AIManager(this, this.actionManager.getAllActionIds());
 
@@ -55,6 +64,18 @@ export default class OVSPlugin extends Plugin {
 			this.stopRecording.bind(this),
 		);
 
+		this.registerDomEvent(document, "keydown", (event: KeyboardEvent) => {
+			if (event.ctrlKey && event.key === "y" && !this.isRecording) {
+				this.startRecording();
+			}
+		});
+
+		this.registerDomEvent(document, "keyup", (event: KeyboardEvent) => {
+			if (event.key === "y" && event.ctrlKey && this.isRecording) {
+				this.stopRecording();
+			}
+		});
+
 		// Register event listeners for the AudioRecorder
 		this.registerEvent(
 			this.audioRecorder.on("recordingStarted", () => {
@@ -82,26 +103,26 @@ export default class OVSPlugin extends Plugin {
 		);
 	}
 
-	private async startRecording() {
+	async startRecording() {
 		if (this.isRecording) return;
 
 		try {
 			await this.audioRecorder.start();
-			this.isRecording = true;
+			this._isRecording = true;
 			new Notice("Recording started");
 		} catch (error) {
 			console.error("Error starting recording:", error);
 			new Notice("Error starting recording");
-			this.isRecording = false;
+			this._isRecording = false;
 		}
 	}
 
-	private async stopRecording() {
+	async stopRecording() {
 		if (!this.isRecording) return;
 
 		try {
 			await this.audioRecorder.stop();
-			this.isRecording = false;
+			this._isRecording = false;
 			new Notice("Recording stopped");
 		} catch (error) {
 			console.error("Error stopping recording:", error);
