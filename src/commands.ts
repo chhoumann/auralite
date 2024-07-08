@@ -32,6 +32,13 @@ export function registerCommands(plugin: OVSPlugin): void {
 				}
 			},
 		},
+		{
+			id: "cancel-ongoing-operation",
+			name: "Cancel Ongoing Operation",
+			callback: () => {
+				plugin.cancelOngoingOperation();
+			},
+		},
 	];
 
 	for (const cmd of commands) {

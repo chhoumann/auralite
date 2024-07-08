@@ -14,6 +14,7 @@ export interface ActionContext {
 	ai: AIManager;
 	client: ReturnType<typeof Instructor>;
 	results: Map<string, unknown>;
+	abortSignal: AbortSignal;
 }
 
 export abstract class Action<TInput extends z.AnyZodObject> {
@@ -26,6 +27,10 @@ export abstract class Action<TInput extends z.AnyZodObject> {
 	async execute(context: ActionContext): Promise<void> {
 		await this.preExecute(context);
 
+		if (context.abortSignal.aborted) {
+			throw new Error("Action cancelled");
+		}
+
 		const msgs = [
 			{ role: "system", content: this.systemPrompt },
 			{
@@ -36,6 +41,11 @@ export abstract class Action<TInput extends z.AnyZodObject> {
 
 		console.log(msgs);
 		const input = await context.ai.createChatCompletion(this.inputSchema, msgs);
+
+		if (context.abortSignal.aborted) {
+			throw new Error("Action cancelled");
+		}
+
 		await this.performAction(input, context);
 	}
 
@@ -61,9 +71,19 @@ export class CompositeAction extends Action<z.AnyZodObject> {
 
 	override async execute(context: ActionContext): Promise<void> {
 		if (this.parallel) {
-			await Promise.all(this.actions.map((action) => action.execute(context)));
+			await Promise.all(
+				this.actions.map((action) => {
+					if (context.abortSignal.aborted) {
+						throw new Error("Action cancelled");
+					}
+					return action.execute(context);
+				}),
+			);
 		} else {
 			for (const action of this.actions) {
+				if (context.abortSignal.aborted) {
+					throw new Error("Action cancelled");
+				}
 				await action.execute(context);
 			}
 		}
@@ -130,12 +150,22 @@ export class CreateNoteAction extends Action<
 		input: z.infer<typeof CreateNoteAction.inputSchema>,
 		context: ActionContext,
 	): Promise<void> {
+		if (context.abortSignal.aborted) {
+			throw new Error("Action cancelled");
+		}
+
 		console.log("Creating note:", input);
 
 		const note = await context.app.vault.create(
 			`dev/${input.noteName}`,
 			input.content || "",
 		);
+
+		if (context.abortSignal.aborted) {
+			// Optionally, you might want to delete the created note if cancelled
+			await context.app.vault.delete(note);
+			throw new Error("Action cancelled");
+		}
 
 		openFile(context.app, note, {
 			paneType: input.paneType,

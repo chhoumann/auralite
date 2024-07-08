@@ -9,6 +9,7 @@ export class AIManager {
 	private client: ReturnType<typeof Instructor>;
 	private plugin!: OVSPlugin;
 	private actionIds: string[];
+	private abortController: AbortController | null = null;
 
 	constructor(plugin: OVSPlugin, actionIDs: string[]) {
 		this.plugin = plugin;
@@ -26,20 +27,30 @@ export class AIManager {
 	}
 
 	async transcribeAudio(audioBuffer: ArrayBuffer): Promise<string> {
+		this.abortController = new AbortController();
 		try {
-			const response = await this.oai.audio.transcriptions.create({
-				file: new File([audioBuffer], "audio.wav", { type: "audio/wav" }),
-				model: "whisper-1",
-			});
+			const response = await this.oai.audio.transcriptions.create(
+				{
+					file: new File([audioBuffer], "audio.wav", { type: "audio/wav" }),
+					model: "whisper-1",
+				},
+				{ signal: this.abortController.signal },
+			);
 
 			return response.text;
-		} catch (error) {
+		} catch (error: unknown) {
+			if (error instanceof Error && error.name === "AbortError") {
+				console.log("Audio transcription was cancelled");
+				throw new Error("Audio transcription cancelled");
+			}
 			console.error("Error transcribing audio:", error);
 			throw new Error("Failed to transcribe audio");
 		}
 	}
 
 	async executeAction(action: string, initialInput: Map<string, unknown>) {
+		this.abortController = new AbortController();
+
 		const context: ActionContext = {
 			app: this.plugin.app,
 			plugin: this.plugin,
@@ -47,9 +58,18 @@ export class AIManager {
 			ai: this,
 			client: this.client,
 			results: initialInput,
+			abortSignal: this.abortController.signal,
 		};
 
-		this.plugin.actionManager.executeAction(action, context);
+		try {
+			await this.plugin.actionManager.executeAction(action, context);
+		} catch (error: unknown) {
+			if (error instanceof Error && error.name === "AbortError") {
+				console.log("Action was cancelled");
+			} else {
+				throw error;
+			}
+		}
 	}
 
 	async run(userInput: string) {
@@ -83,20 +103,35 @@ export class AIManager {
 		schema: TSchema,
 		messages: Array<{ role: string; content: string }>,
 	) {
+		this.abortController = new AbortController();
 		try {
-			const response = await this.client.chat.completions.create({
-				messages,
-				model: "gpt-4o",
-				response_model: {
-					schema: schema,
-					name: "User",
+			const response = await this.client.chat.completions.create(
+				{
+					messages,
+					model: "gpt-4",
+					response_model: {
+						schema: schema,
+						name: "User",
+					},
 				},
-			});
+				{ signal: this.abortController.signal },
+			);
 
 			return response;
-		} catch (error) {
+		} catch (error: unknown) {
+			if (error instanceof Error && error.name === "AbortError") {
+				console.log("Chat completion was cancelled");
+				throw new Error("Chat completion cancelled");
+			}
 			console.error("Error creating chat completion:", error);
 			throw new Error("Failed to create chat completion");
+		}
+	}
+
+	cancelOngoingOperation() {
+		if (this.abortController) {
+			this.abortController.abort();
+			this.abortController = null;
 		}
 	}
 }

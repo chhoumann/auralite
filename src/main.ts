@@ -184,4 +184,8 @@ export default class OVSPlugin extends Plugin {
 			this.statusNotice = null;
 		}, 5000);
 	}
+
+	cancelOngoingOperation() {
+		this.aiManager.cancelOngoingOperation();
+	}
 }
