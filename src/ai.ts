@@ -4,6 +4,8 @@ import { z } from "zod";
 import type OVSPlugin from "./main";
 import type { Stream } from "openai/streaming";
 import { ContextBuilder } from "./ContextBuilder";
+import { removeWhitespace } from "./actions/removeWhitespace";
+import { TFile } from "obsidian";
 
 export class AIManager {
 	private oai: OpenAI;
@@ -83,10 +85,42 @@ export class AIManager {
 		userInput: string,
 		editorState: ReturnType<typeof ContextBuilder.prototype.captureEditorState>,
 	) {
+		const actionsList = this.actionIds.map(
+			(actionId) =>
+				`- ${actionId}: ${this.plugin.actionManager?.getAction(actionId)?.description}`,
+		);
+		const actionsPrompt = removeWhitespace(
+			`The action to take. Here are the available actions:\n${actionsList.join("\n")}`,
+		);
+
+		const possibleContexts = {
+			currentFile: "The current file, including name and contents",
+			currentLine: "The current line",
+			currentSelection: "The current selection",
+		} as const;
+
+		type PossibleContexts = keyof typeof possibleContexts;
+
 		const actionSchema = z.object({
 			action: z
 				.enum(this.actionIds as [string, ...string[]])
-				.describe("The action to take"),
+				.describe(actionsPrompt),
+			necessaryContexts: z
+				.array(
+					z.enum(
+						Object.keys(possibleContexts) as [
+							PossibleContexts,
+							...PossibleContexts[],
+						],
+					),
+				)
+				.describe(
+					`The necessary context to execute the action. Here are the available contexts:\n${Object.entries(
+						possibleContexts,
+					)
+						.map(([key, value]) => `- ${key}: ${value}`)
+						.join("\n")}`,
+				),
 		});
 
 		const actionResult = await this.createChatCompletion(actionSchema, [
@@ -100,11 +134,59 @@ export class AIManager {
 			},
 		]);
 
-		console.log(actionResult);
-
 		const input = new Map();
+
+		for (const context of actionResult.necessaryContexts) {
+			switch (context) {
+				case "currentFile": {
+					const file = this.plugin.app.workspace.getActiveFile();
+					if (!file || !(file instanceof TFile)) {
+						input.set(context, "No file open");
+						break;
+					}
+
+					input.set("currentFileName", file.name);
+					input.set(
+						"currentFileContent",
+						await this.plugin.app.vault.cachedRead(file),
+					);
+					break;
+				}
+
+				case "currentLine": {
+					const line = editorState.cursor?.line;
+					if (!line) {
+						input.set(context, "No line");
+						break;
+					}
+
+					input.set(context, editorState.activeEditor?.getLine(line));
+					break;
+				}
+
+				case "currentSelection": {
+					const selection = editorState.activeEditor?.getSelection();
+					if (!selection) {
+						input.set(context, "No selection");
+						break;
+					}
+
+					input.set(context, selection);
+					break;
+				}
+				default:
+					break;
+			}
+		}
+
 		input.set("action", actionResult.action);
+		input.set(
+			"actionDescription",
+			this.plugin.actionManager.getAction(actionResult.action)?.description,
+		);
 		input.set("userInput", userInput);
+
+		console.log(input);
 
 		this.executeAction(actionResult.action, input, editorState);
 	}

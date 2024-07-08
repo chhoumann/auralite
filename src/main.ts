@@ -9,6 +9,7 @@ import {
 	CreateNoteAction,
 	NoopAction,
 	TranscribeAction,
+	WriteAction,
 } from "./actions/Action";
 import { ActionManager } from "./actions/ActionManager";
 import { AIManager } from "./ai";
@@ -37,6 +38,7 @@ export default class OVSPlugin extends Plugin {
 		this.actionManager.registerAction(new CreateNoteAction());
 		this.actionManager.registerAction(new NoopAction());
 		this.actionManager.registerAction(new TranscribeAction());
+		this.actionManager.registerAction(new WriteAction());
 
 		this.aiManager = new AIManager(this, this.actionManager.getAllActionIds());
 		this.contextBuilder = new ContextBuilder(this);

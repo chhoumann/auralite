@@ -26,6 +26,8 @@ export interface ActionContext {
 }
 
 export abstract class Action<TInput extends z.AnyZodObject> {
+	abstract readonly description: string;
+
 	constructor(
 		readonly id: string,
 		readonly inputSchema: TInput,
@@ -81,6 +83,8 @@ export abstract class Action<TInput extends z.AnyZodObject> {
 }
 
 export class CompositeAction extends Action<z.AnyZodObject> {
+	readonly description = "Execute multiple actions in sequence or in parallel.";
+
 	private actions: Action<z.AnyZodObject>[];
 
 	constructor(
@@ -121,6 +125,8 @@ export class CompositeAction extends Action<z.AnyZodObject> {
 export class CreateNoteAction extends Action<
 	typeof CreateNoteAction.inputSchema
 > {
+	readonly description = "Create a new note.";
+
 	static inputSchema = z.object({
 		noteName: z
 			.string()
@@ -205,6 +211,9 @@ export class CreateNoteAction extends Action<
 }
 
 export class NoopAction extends Action<typeof NoopAction.inputSchema> {
+	readonly description =
+		"This action does nothing and is used when no specific action is required.";
+
 	static inputSchema = z.object({});
 
 	constructor() {
@@ -227,6 +236,8 @@ export class NoopAction extends Action<typeof NoopAction.inputSchema> {
 export class TranscribeAction extends Action<
 	typeof TranscribeAction.inputSchema
 > {
+	readonly description = "Format transcribed audio to be more readable.";
+
 	static inputSchema = z.object({
 		transcription: z
 			.string()
@@ -295,6 +306,7 @@ export class TranscribeAction extends Action<
 			console.error("No active Markdown view or cursor position");
 			return;
 		}
+
 		let fullTranscription = "";
 		let lastInsertedLength = 0;
 
@@ -320,5 +332,114 @@ export class TranscribeAction extends Action<
 		}
 
 		context.results.set(this.id, { transcription: fullTranscription });
+	}
+}
+
+export class WriteAction extends Action<typeof WriteAction.inputSchema> {
+	readonly description = "Write content to the current file.";
+
+	static inputSchema = z.object({
+		content: z.string().describe("The content to write to the file."),
+	});
+
+	static systemPrompt = removeWhitespace(`You are an AI assistant writing content directly into an Obsidian note.
+        Format your responses using Markdown syntax.
+        Use the [[Obsidian]] link format for internal links.
+        You can write aliases for links using [[Obsidian|alias]] format.
+        Use LaTeX syntax for mathematical notation, surrounded by $$ for block equations or $ for inline expressions.
+    `);
+
+	private activeView?: View;
+	private cursor?: EditorPosition;
+	private activeEditor?: Editor;
+
+	constructor() {
+		super(
+			"write",
+			WriteAction.inputSchema,
+			WriteAction.systemPrompt,
+			true, // Enable streaming
+		);
+	}
+
+	protected override async preExecute(context: ActionContext): Promise<void> {
+		const {
+			state: {
+				editor: { activeView, cursor, activeEditor },
+			},
+		} = context;
+		this.activeView = activeView;
+		this.cursor = cursor;
+		this.activeEditor = activeEditor;
+
+		if (!this.activeView || !this.cursor || !this.activeEditor) {
+			throw new Error("No active Markdown view or cursor position");
+		}
+	}
+
+	protected async performAction(
+		input: z.infer<typeof WriteAction.inputSchema>,
+		context: ActionContext,
+	): Promise<void> {
+		if (!this.activeEditor || !this.cursor) {
+			throw new Error("No active editor or cursor position");
+		}
+		this.activeEditor.replaceRange(input.content, this.cursor);
+	}
+
+	protected override async performActionStream(
+		stream: Stream<z.infer<typeof WriteAction.inputSchema>>,
+		context: ActionContext,
+	): Promise<void> {
+		if (!this.activeEditor || !this.cursor) {
+			throw new Error("No active editor or cursor position");
+		}
+
+		let fullContent = "";
+		const lastCursor = this.cursor;
+		let lastInsertedLength = 0;
+
+		try {
+			for await (const chunk of stream) {
+				if (context.abortSignal.aborted) {
+					throw new Error("Action cancelled");
+				}
+
+				if (!chunk.content) {
+					continue;
+				}
+
+				fullContent = chunk.content;
+				const newContent = fullContent.slice(lastInsertedLength);
+
+				if (!newContent) {
+					continue;
+				}
+
+				lastInsertedLength += newContent.length;
+
+				const lines = newContent.split('\n');
+				if (lines.length > 1) {
+					for (const line of lines) {
+						this.activeEditor.replaceRange(`${line}\n`, lastCursor);
+						lastCursor.line++;
+						lastCursor.ch = 0;
+					}
+				} else {
+					this.activeEditor.replaceRange(newContent, lastCursor);
+					lastCursor.ch += newContent.length;
+				}
+			}
+
+			context.results.set(this.id, { content: fullContent });
+			console.log(context.results);
+		} catch (error: unknown) {
+			if (error instanceof Error && error.name === "AbortError") {
+				console.log("Write action was cancelled");
+				throw new Error("Write action cancelled");
+			}
+			console.error("Error performing write action:", error);
+			throw new Error("Failed to perform write action");
+		}
 	}
 }
