@@ -43,14 +43,7 @@ export default class OVSPlugin extends Plugin {
 
 		this.addSettingTab(new OVSSettingTab(this.app, this));
 
-		this.addRibbonIcon("mic", "Push to talk", (evt: MouseEvent) => {
-			if (evt.type === "mousedown") {
-				this.startRecording();
-			} else if (evt.type === "mouseup" || evt.type === "mouseleave") {
-				this.stopRecording();
-			}
-		});
-
+		// == Push-to-Talk Ribbon Events ==
 		const ribbonIcon = this.addRibbonIcon("mic", "Push to talk", () => {});
 		this.registerDomEvent(
 			ribbonIcon,
@@ -64,7 +57,7 @@ export default class OVSPlugin extends Plugin {
 			this.stopRecording.bind(this),
 		);
 
-		// Register event listeners for the AudioRecorder
+		// == AudioRecorder Events ==
 		this.registerEvent(
 			this.audioRecorder.on(
 				"recordingStarted",
