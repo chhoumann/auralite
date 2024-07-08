@@ -29,6 +29,7 @@
     "strict": true,
     "skipLibCheck": true,
     "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
     "noPropertyAccessFromIndexSignature": true,
     "noImplicitAny": true,
     "noImplicitThis": true,

@@ -31,11 +31,17 @@
   "scripts": {
     "dev": "bun ./esbuild.config.mjs",
     "build": "bun ./esbuild.config.mjs production",
-    "lint": "bunx biome lint src build.ts version-bump.ts",
-    "format": "bunx biome format src build.ts version-bump.ts --write",
-    "check": "bunx @biomejs/biome check --apply src build.ts version-bump.ts && bun run type-check",
+    "lint": "bunx biome lint src version-bump.ts",
+    "format": "bunx biome format src version-bump.ts --write",
+    "check": "bunx @biomejs/biome check --write src version-bump.ts && bun run type-check",
+    "type-check": "bun tsc --noEmit",
     "version": "bun ./version-bump.ts && git add manifest.json versions.json",
     "semantic-release": "semantic-release"
   },
-  "type": "commonjs"
+  "type": "commonjs",
+  "dependencies": {
+    "@instructor-ai/instructor": "^1.5.0",
+    "openai": "^4.52.3",
+    "zod": "^3.23.8"
+  }
 }

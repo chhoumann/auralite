@@ -1,4 +1,4 @@
-import { Notice, type Command } from "obsidian";
+import { type Command, Notice } from "obsidian";
 import type OVSPlugin from "./main";
 
 declare const __IS_DEV__: boolean;
