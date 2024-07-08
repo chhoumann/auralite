@@ -16,6 +16,8 @@ export class AudioRecorder extends Events {
 	private recordingPromise: Promise<ArrayBuffer> | null = null;
 	private resolveRecording: ((value: ArrayBuffer) => void) | null = null;
 	private rejectRecording: ((reason: unknown) => void) | null = null;
+	private audioContext: AudioContext | null = null;
+	private analyser: AnalyserNode | null = null;
 
 	private handleDataAvailable = (event: BlobEvent) => {
 		this.audioChunks.push(event.data);
@@ -72,6 +74,12 @@ export class AudioRecorder extends Events {
 				this.rejectRecording = reject;
 			});
 
+			this.audioContext = new AudioContext();
+			const source = this.audioContext.createMediaStreamSource(stream);
+			this.analyser = this.audioContext.createAnalyser();
+			this.analyser.fftSize = 256;
+			source.connect(this.analyser);
+
 			this.mediaRecorder.start();
 			this.trigger("recordingStarted");
 		} catch (error) {
@@ -112,6 +120,10 @@ export class AudioRecorder extends Events {
 		return (
 			this.mediaRecorder !== null && this.mediaRecorder.state === "recording"
 		);
+	}
+
+	getAnalyser(): AnalyserNode | null {
+		return this.analyser;
 	}
 
 	override on<K extends keyof AudioRecorderEvents>(
