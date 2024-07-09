@@ -1,4 +1,6 @@
+import Instructor from "@instructor-ai/instructor";
 import { Notice, Plugin, TFile } from "obsidian";
+import OpenAI from "openai";
 import { AudioRecorder } from "./AudioRecorder";
 import { ContextBuilder } from "./ContextBuilder";
 import {
@@ -40,8 +42,20 @@ export default class OVSPlugin extends Plugin {
 		this.actionManager.registerAction(new TranscribeAction());
 		this.actionManager.registerAction(new WriteAction());
 
-		this.aiManager = new AIManager(this, this.actionManager.getAllActionIds());
+		const openAIClient = new OpenAI({
+			apiKey: this.settings.OPENAI_API_KEY,
+			dangerouslyAllowBrowser: true,
+		});
+
 		this.contextBuilder = new ContextBuilder(this);
+
+		this.aiManager = new AIManager(
+			this,
+			this.actionManager.getAllActionIds(),
+			openAIClient,
+			Instructor({ client: openAIClient, mode: "TOOLS" }),
+			this.contextBuilder,
+		);
 
 		registerCommands(this);
 

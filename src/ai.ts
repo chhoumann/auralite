@@ -1,35 +1,22 @@
-import Instructor from "@instructor-ai/instructor";
-import OpenAI from "openai";
+import type Instructor from "@instructor-ai/instructor";
+import type OpenAI from "openai";
 import type { Stream } from "openai/streaming";
 import { z } from "zod";
-import { ContextBuilder } from "./ContextBuilder";
+import type { ContextBuilder } from "./ContextBuilder";
 import type { EditorState } from "./actions/Action";
 import { removeWhitespace } from "./actions/removeWhitespace";
 import type OVSPlugin from "./main";
 
 export class AIManager {
-	private oai: OpenAI;
-	private client: ReturnType<typeof Instructor>;
-	private plugin: OVSPlugin;
-	private actionIds: string[];
-	private abortController: AbortController | null = null;
-	private contextBuilder: ContextBuilder;
+	abortController: AbortController | null = null;
 
-	constructor(plugin: OVSPlugin, actionIDs: string[]) {
-		this.plugin = plugin;
-		this.oai = new OpenAI({
-			apiKey: plugin.settings.OPENAI_API_KEY,
-			dangerouslyAllowBrowser: true,
-		});
-
-		this.client = Instructor({
-			client: this.oai,
-			mode: "TOOLS",
-		});
-
-		this.actionIds = actionIDs;
-		this.contextBuilder = new ContextBuilder(plugin);
-	}
+	constructor(
+		private plugin: OVSPlugin,
+		private actionIds: string[],
+		private oai: OpenAI,
+		private client: ReturnType<typeof Instructor>,
+		private contextBuilder: ContextBuilder,
+	) {}
 
 	getOpenAI(): OpenAI {
 		return this.oai;
@@ -41,6 +28,7 @@ export class AIManager {
 
 	async transcribeAudio(audioBuffer: ArrayBuffer): Promise<string> {
 		this.abortController = new AbortController();
+
 		try {
 			const response = await this.oai.audio.transcriptions.create(
 				{
@@ -84,7 +72,7 @@ export class AIManager {
 	async run(userInput: string, editorState: Partial<EditorState>) {
 		const actionsList = this.actionIds.map(
 			(actionId) =>
-				`- ${actionId}: ${this.plugin.actionManager?.getAction(actionId)?.description}`,
+				` - ${actionId}: ${this.plugin.actionManager?.getAction(actionId)?.description}`,
 		);
 		const actionsPrompt = removeWhitespace(
 			`The action to take. Here are the available actions:\n${actionsList.join("\n")}`,
