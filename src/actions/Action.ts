@@ -365,7 +365,11 @@ export class TranscribeAction extends Action<
 
 				const lines = chunk.split("\n");
 				if (lines.length > 1) {
-					for (const line of lines) {
+					const uniqueLines = lines.filter(
+						(line, index, array) => line !== array[index - 1],
+					);
+
+					for (const line of uniqueLines) {
 						this.activeEditor.replaceRange(`${line}\n`, lastCursor);
 						lastCursor.line++;
 						lastCursor.ch = 0;
@@ -377,7 +381,6 @@ export class TranscribeAction extends Action<
 			}
 
 			context.results.set(this.id, { content: fullContent.value });
-			console.log(context.results);
 		} catch (error: unknown) {
 			if (error instanceof Error && error.name === "AbortError") {
 				console.log("Transcribe action was cancelled");
@@ -458,7 +461,11 @@ export class WriteAction extends Action<typeof WriteAction.inputSchema> {
 
 				const lines = chunk.split("\n");
 				if (lines.length > 1) {
-					for (const line of lines) {
+					const uniqueLines = lines.filter(
+						(line, index, array) => line !== array[index - 1],
+					);
+
+					for (const line of uniqueLines) {
 						this.activeEditor.replaceRange(`${line}\n`, lastCursor);
 						lastCursor.line++;
 						lastCursor.ch = 0;
@@ -470,7 +477,6 @@ export class WriteAction extends Action<typeof WriteAction.inputSchema> {
 			}
 
 			context.results.set(this.id, { content: fullContent.value });
-			console.log(context.results);
 		} catch (error: unknown) {
 			if (error instanceof Error && error.name === "AbortError") {
 				console.log("Write action was cancelled");
