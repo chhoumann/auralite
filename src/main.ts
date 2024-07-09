@@ -8,12 +8,10 @@ import {
 	type OVSPluginSettings,
 	OVSSettingTab,
 } from "./OVSSettingTab";
-import {
-	CreateNoteAction,
-	NoopAction,
-	TranscribeAction,
-	WriteAction,
-} from "./actions/Action";
+import { NoopAction } from "./actions/NoopAction";
+import { CreateNoteAction } from "./actions/CreateNoteAction";
+import { TranscribeAction } from "./actions/TranscribeAction";
+import { WriteAction } from "./actions/WriteAction";
 import { ActionManager } from "./actions/ActionManager";
 import { AIManager } from "./ai";
 import { registerCommands } from "./commands";
@@ -181,22 +179,15 @@ export default class OVSPlugin extends Plugin {
 		}
 	}
 
-	private createWaveform(waveformContainer: HTMLElement) {
-		const analyser = this.audioRecorder.getAnalyser();
-		if (!analyser) return;
-
-		// Stop and remove any existing waveform visualizer
+	private createWaveform(analyser: AnalyserNode) {
 		this.stopWaveform();
-
-		// Clear the waveform container
-		waveformContainer.empty();
-
-		// Create a new WaveformVisualizer instance
-		this.waveformVisualizer = new WaveformVisualizer(
-			waveformContainer,
-			analyser,
-		);
-		this.waveformVisualizer.start();
+		if (this.floatingBar) {
+			this.waveformVisualizer = new WaveformVisualizer(
+				this.floatingBar.waveformContainer,
+				analyser,
+			);
+			this.waveformVisualizer.start();
+		}
 	}
 
 	private stopWaveform() {
@@ -208,9 +199,11 @@ export default class OVSPlugin extends Plugin {
 
 	private onRecordingStarted = () => {
 		console.log("Recording started");
-		if (this.floatingBar) {
+		const analyser = this.audioRecorder.getAnalyser();
+
+		if (this.floatingBar && analyser) {
 			this.floatingBar.show();
-			this.createWaveform(this.floatingBar._waveformContainer);
+			this.createWaveform(analyser);
 		}
 	};
 

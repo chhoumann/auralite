@@ -7,7 +7,7 @@ export function createStreamingInserter(
 	const lastCursor = { ...initialCursor };
 
 	return function insertStreamedContent(chunk: string) {
-		const lines = chunk.split("\n");
+		const lines = chunk.split(/\r\n|\n|\r/);
 		if (lines.length > 1) {
 			const uniqueLines = lines.filter(
 				(line, index, array) => line !== array[index - 1],
