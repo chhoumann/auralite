@@ -3,6 +3,11 @@ import type OVSPlugin from "@/main";
 import type Instructor from "@instructor-ai/instructor";
 import type { App, Editor, EditorPosition, View } from "obsidian";
 import type OpenAI from "openai";
+import type {
+	ChatCompletion,
+	ChatCompletionChunk,
+	ChatCompletionMessageParam,
+} from "openai/resources";
 import type { Stream } from "openai/streaming";
 import type { z } from "zod";
 
@@ -39,6 +44,7 @@ export abstract class Action<TInput extends z.AnyZodObject> {
 		readonly inputSchema: TInput,
 		readonly systemPrompt: string,
 		readonly supportsStreaming: boolean = false,
+		readonly useInstructor: boolean = true,
 	) {}
 
 	async execute(context: ActionContext): Promise<void> {
@@ -48,7 +54,7 @@ export abstract class Action<TInput extends z.AnyZodObject> {
 			throw new Error("Action cancelled");
 		}
 
-		const msgs = [
+		const msgs: Array<ChatCompletionMessageParam> = [
 			{ role: "system", content: this.systemPrompt },
 			{
 				role: "system",
@@ -58,61 +64,40 @@ export abstract class Action<TInput extends z.AnyZodObject> {
 
 		console.log("messages:", msgs);
 
-		if (this.supportsStreaming) {
-			const stream = await context.ai.createChatCompletionStream(
-				this.inputSchema,
-				msgs,
-			);
-			await this.performActionStream(stream, context);
+		if (this.useInstructor) {
+			if (this.supportsStreaming) {
+				const stream = await context.ai.createInstructorChatCompletionStream(
+					this.inputSchema,
+					msgs,
+				);
+				await this.performActionStream(stream, context);
+			} else {
+				const input = await context.ai.createInstructorChatCompletion(
+					this.inputSchema,
+					msgs,
+				);
+				await this.performAction(input, context);
+			}
 		} else {
-			const input = await context.ai.createChatCompletion(
-				this.inputSchema,
-				msgs,
-			);
-			await this.performAction(input, context);
+			if (this.supportsStreaming) {
+				const stream = await context.ai.createOpenAIChatCompletionStream(msgs);
+				await this.performActionStream(stream, context);
+			} else {
+				const response = await context.ai.createOpenAIChatCompletion(msgs);
+				await this.performAction(response, context);
+			}
 		}
 	}
 
 	protected async preExecute(context: ActionContext): Promise<void> {}
 
 	protected abstract performAction(
-		input: z.infer<TInput>,
+		input: z.infer<TInput> | ChatCompletion,
 		context: ActionContext,
 	): Promise<void>;
 
-	protected async getStreamProcessor(
-		stream: Stream<z.infer<TInput>>,
-		context: ActionContext,
-		chunkKey: keyof z.infer<TInput>,
-	): Promise<{
-		processor: AsyncGenerator<string, void, unknown>;
-		fullContent: { value: string };
-	}> {
-		const fullContent = { value: "" };
-
-		return {
-			processor: (async function* streamProcessor(
-				stream: Stream<z.infer<TInput>>,
-				context: ActionContext,
-				chunkKey: keyof z.infer<TInput>,
-			) {
-				for await (const chunk of stream) {
-					if (context.abortSignal.aborted) {
-						throw new Error("Action cancelled");
-					}
-					if (chunk[chunkKey]) {
-						const newContent = chunk[chunkKey].slice(fullContent.value.length);
-						fullContent.value = chunk[chunkKey];
-						yield newContent;
-					}
-				}
-			})(stream, context, chunkKey),
-			fullContent,
-		};
-	}
-
 	protected async performActionStream(
-		stream: Stream<z.infer<TInput>>,
+		stream: Stream<z.infer<TInput> | ChatCompletionChunk>,
 		context: ActionContext,
 	): Promise<void> {
 		throw new Error("Streaming not implemented for this action");

@@ -8,15 +8,15 @@ import {
 	type OVSPluginSettings,
 	OVSSettingTab,
 } from "./OVSSettingTab";
-import { NoopAction } from "./actions/NoopAction";
+import { ActionManager } from "./actions/ActionManager";
 import { CreateNoteAction } from "./actions/CreateNoteAction";
+import { NoopAction } from "./actions/NoopAction";
 import { TranscribeAction } from "./actions/TranscribeAction";
 import { WriteAction } from "./actions/WriteAction";
-import { ActionManager } from "./actions/ActionManager";
 import { AIManager } from "./ai";
 import { registerCommands } from "./commands";
-import { WaveformVisualizer } from "./components/WaveformVisualizer";
 import { FloatingBar } from "./components/FloatingBar";
+import { WaveformVisualizer } from "./components/WaveformVisualizer";
 
 declare const __IS_DEV__: boolean;
 

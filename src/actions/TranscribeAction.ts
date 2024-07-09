@@ -4,6 +4,7 @@ import type { Editor, EditorPosition, View } from "obsidian";
 import type { Stream } from "openai/streaming";
 import { z } from "zod";
 import { Action, type ActionContext } from "./Action";
+import { getInstructorStreamProcessor } from "@/utils";
 
 export class TranscribeAction extends Action<
 	typeof TranscribeAction.inputSchema
@@ -84,11 +85,11 @@ export class TranscribeAction extends Action<
 			this.cursor,
 		);
 
-		const { processor, fullContent } = await this.getStreamProcessor(
+		const { processor, fullContent } = await getInstructorStreamProcessor({
 			stream,
 			context,
-			"transcription",
-		);
+			chunkKey: "transcription",
+		});
 
 		try {
 			for await (const chunk of processor) {

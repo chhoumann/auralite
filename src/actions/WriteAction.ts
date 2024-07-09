@@ -1,9 +1,11 @@
 import { removeWhitespace } from "@/utils";
 import { createStreamingInserter } from "@/utils";
 import { type Editor, type EditorPosition, MarkdownView } from "obsidian";
+import type { ChatCompletion, ChatCompletionChunk } from "openai/resources";
 import type { Stream } from "openai/streaming";
 import { z } from "zod";
 import { Action, type ActionContext } from "./Action";
+import { getOpenAIStreamProcessor } from "@/utils";
 
 export class WriteAction extends Action<typeof WriteAction.inputSchema> {
 	readonly description = "Write content to the current file.";
@@ -23,7 +25,13 @@ export class WriteAction extends Action<typeof WriteAction.inputSchema> {
 	private activeEditor?: Editor;
 
 	constructor() {
-		super("write", WriteAction.inputSchema, WriteAction.systemPrompt, true);
+		super(
+			"write",
+			WriteAction.inputSchema,
+			WriteAction.systemPrompt,
+			true,
+			false,
+		);
 	}
 
 	protected override async preExecute(context: ActionContext): Promise<void> {
@@ -36,17 +44,20 @@ export class WriteAction extends Action<typeof WriteAction.inputSchema> {
 	}
 
 	protected async performAction(
-		input: z.infer<typeof WriteAction.inputSchema>,
+		input: ChatCompletion,
 		context: ActionContext,
 	): Promise<void> {
 		if (!this.activeEditor || !this.cursor) {
 			throw new Error("No active editor or cursor position");
 		}
-		this.activeEditor.replaceRange(input.content, this.cursor);
+		this.activeEditor.replaceRange(
+			input.choices[0].message.content ?? "",
+			this.cursor,
+		);
 	}
 
 	protected override async performActionStream(
-		stream: Stream<z.infer<typeof WriteAction.inputSchema>>,
+		stream: Stream<ChatCompletionChunk>,
 		context: ActionContext,
 	): Promise<void> {
 		if (!this.activeEditor || !this.cursor) {
@@ -58,11 +69,10 @@ export class WriteAction extends Action<typeof WriteAction.inputSchema> {
 			this.cursor,
 		);
 
-		const { processor, fullContent } = await this.getStreamProcessor(
+		const { processor, fullContent } = await getOpenAIStreamProcessor({
 			stream,
 			context,
-			"content",
-		);
+		});
 
 		try {
 			for await (const chunk of processor) {
