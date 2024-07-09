@@ -1,7 +1,7 @@
 {
 	"id": "ovs",
 	"name": "OVS",
-	"version": "1.1.0",
+	"version": "1.1.1",
 	"minAppVersion": "1.6.5",
 	"description": "",
 	"author": "Christian B. B. Houmann",
