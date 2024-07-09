@@ -19,6 +19,8 @@ import { AIManager } from "./ai";
 import { registerCommands } from "./commands";
 import { WaveformVisualizer } from "./components/WaveformVisualizer";
 
+declare const __IS_DEV__: boolean;
+
 export default class OVSPlugin extends Plugin {
 	settings!: OVSPluginSettings;
 	actionManager!: ActionManager;
@@ -142,21 +144,27 @@ export default class OVSPlugin extends Plugin {
 			const editorState = await this.contextBuilder.captureEditorState();
 			const transcription = await this.aiManager.transcribeAudio(audioBuffer);
 
-			const filePath = "dev/transcription.md";
-			const file = this.app.vault.getAbstractFileByPath(filePath);
-			if (file && file instanceof TFile) {
-				this.app.vault.modify(file, transcription).catch((error) => {
-					console.error("Error modifying file:", error);
-				});
-			} else {
-				this.app.vault.create(filePath, transcription).catch((error) => {
-					console.error("Error creating file:", error);
+			if (__IS_DEV__) {
+				const filePath = "dev/transcription.md";
+
+				this.saveTranscription(filePath, transcription).catch((error) => {
+					console.error("Error saving transcription:", error);
 				});
 			}
 
 			await this.aiManager.run(transcription, editorState);
 		} catch (error) {
 			console.error("Error processing recording:", error);
+			new Notice("Error processing recording. Check console for details.");
+		}
+	}
+
+	private async saveTranscription(filePath: string, transcription: string) {
+		const file = this.app.vault.getAbstractFileByPath(filePath);
+		if (file instanceof TFile) {
+			await this.app.vault.modify(file, transcription);
+		} else {
+			await this.app.vault.create(filePath, transcription);
 		}
 	}
 
