@@ -1,47 +1,88 @@
+import Instructor from "@instructor-ai/instructor";
 import { Notice, Plugin, TFile } from "obsidian";
+import OpenAI from "openai";
 import { AudioRecorder } from "./AudioRecorder";
+import { ContextBuilder } from "./ContextBuilder";
 import {
 	DEFAULT_SETTINGS,
 	type OVSPluginSettings,
 	OVSSettingTab,
 } from "./OVSSettingTab";
-import { CreateNoteAction, NoopAction } from "./actions/Action";
 import { ActionManager } from "./actions/ActionManager";
+import { CreateNoteAction } from "./actions/CreateNoteAction";
+import { NoopAction } from "./actions/NoopAction";
+import { TranscribeAction } from "./actions/TranscribeAction";
+import { WriteAction } from "./actions/WriteAction";
 import { AIManager } from "./ai";
 import { registerCommands } from "./commands";
+import { FloatingBar } from "./components/FloatingBar";
+import { WaveformVisualizer } from "./components/WaveformVisualizer";
+
+declare const __IS_DEV__: boolean;
 
 export default class OVSPlugin extends Plugin {
 	settings!: OVSPluginSettings;
 	actionManager!: ActionManager;
-
+	contextBuilder!: ContextBuilder;
 	private audioRecorder: AudioRecorder = new AudioRecorder();
 	private aiManager!: AIManager;
-	private isRecording = false;
+	private _isRecording = false;
+	private waveformVisualizer: WaveformVisualizer | null = null;
+	private floatingBar: FloatingBar | null = null;
+
+	public get isRecording(): boolean {
+		return this._isRecording;
+	}
 
 	override async onload() {
 		await this.loadSettings();
-		this.actionManager = new ActionManager();
+		this.initializeComponents();
+		this.setupEventListeners();
+		registerCommands(this);
+		this.addSettingTab(new OVSSettingTab(this.app, this));
+	}
 
+	private initializeComponents() {
+		this.actionManager = new ActionManager();
+		this.registerActions();
+
+		const openAIClient = this.createOpenAIClient();
+		this.contextBuilder = new ContextBuilder(this);
+		this.aiManager = this.createAIManager(openAIClient);
+
+		this.floatingBar = new FloatingBar(this.app.workspace.containerEl);
+	}
+
+	private registerActions() {
 		this.actionManager.registerAction(new CreateNoteAction());
 		this.actionManager.registerAction(new NoopAction());
+		this.actionManager.registerAction(new TranscribeAction());
+		this.actionManager.registerAction(new WriteAction());
+	}
 
-		this.aiManager = new AIManager(this, this.actionManager.getAllActionIds());
-
-		registerCommands(this);
-
-		this.addSettingTab(new OVSSettingTab(this.app, this));
-
-		// Replace the existing ribbon icon with a push-to-talk button
-		this.addRibbonIcon("mic", "Push to talk", (evt: MouseEvent) => {
-			if (evt.type === "mousedown") {
-				this.startRecording();
-			} else if (evt.type === "mouseup" || evt.type === "mouseleave") {
-				this.stopRecording();
-			}
+	private createOpenAIClient() {
+		return new OpenAI({
+			apiKey: this.settings.OPENAI_API_KEY,
+			dangerouslyAllowBrowser: true,
 		});
+	}
 
-		// Add event listeners for the push-to-talk button
-		// Register the push-to-talk button
+	private createAIManager(openAIClient: OpenAI) {
+		return new AIManager(
+			this,
+			this.actionManager.getAllActionIds(),
+			openAIClient,
+			Instructor({ client: openAIClient, mode: "TOOLS" }),
+			this.contextBuilder,
+		);
+	}
+
+	private setupEventListeners() {
+		this.setupPushToTalkEvents();
+		this.setupAudioRecorderEvents();
+	}
+
+	private setupPushToTalkEvents() {
 		const ribbonIcon = this.addRibbonIcon("mic", "Push to talk", () => {});
 		this.registerDomEvent(
 			ribbonIcon,
@@ -54,64 +95,70 @@ export default class OVSPlugin extends Plugin {
 			"mouseleave",
 			this.stopRecording.bind(this),
 		);
+	}
 
-		// Register event listeners for the AudioRecorder
+	private setupAudioRecorderEvents() {
 		this.registerEvent(
-			this.audioRecorder.on("recordingStarted", () => {
-				console.log("Recording started");
-			}),
+			this.audioRecorder.on(
+				"recordingStarted",
+				this.onRecordingStarted.bind(this),
+			),
 		);
 
 		this.registerEvent(
 			this.audioRecorder.on(
 				"recordingComplete",
-				async (buffer: ArrayBuffer) => {
-					console.log("Recording complete");
-					await this.processRecording(buffer);
-				},
+				this.onRecordingComplete.bind(this),
 			),
 		);
 
 		this.registerEvent(
-			this.audioRecorder.on("error", (error: unknown) => {
-				console.error("Recording error:", error);
-				new Notice(
-					`Error during recording: ${error instanceof Error ? error.message : String(error)}`,
-				);
-			}),
+			this.audioRecorder.on("error", this.onRecordingError.bind(this)),
 		);
 	}
 
-	private async startRecording() {
+	async startRecording() {
 		if (this.isRecording) return;
 
 		try {
 			await this.audioRecorder.start();
-			this.isRecording = true;
-			new Notice("Recording started");
+			this._isRecording = true;
 		} catch (error) {
 			console.error("Error starting recording:", error);
-			new Notice("Error starting recording");
-			this.isRecording = false;
+			this._isRecording = false;
 		}
 	}
 
-	private async stopRecording() {
+	async stopRecording() {
 		if (!this.isRecording) return;
 
 		try {
 			await this.audioRecorder.stop();
-			this.isRecording = false;
-			new Notice("Recording stopped");
+			this._isRecording = false;
 		} catch (error) {
 			console.error("Error stopping recording:", error);
-			new Notice("Error stopping recording");
 		}
 	}
 
 	override onunload() {
-		this.audioRecorder.cancel();
-		this.audioRecorder.teardown();
+		try {
+			if (this.audioRecorder) {
+				this.audioRecorder.cancel();
+				this.audioRecorder.teardown();
+			}
+
+			if (this.floatingBar) {
+				this.floatingBar.remove();
+				this.floatingBar = null;
+			}
+
+			if (this.waveformVisualizer) {
+				this.waveformVisualizer.stop();
+				this.waveformVisualizer = null;
+			}
+		} catch (error) {
+			console.error("Error during plugin unload:", error);
+		}
 	}
 
 	async loadSettings() {
@@ -124,20 +171,90 @@ export default class OVSPlugin extends Plugin {
 
 	private async processRecording(audioBuffer: ArrayBuffer) {
 		try {
+			const editorState = await this.contextBuilder.captureEditorState();
 			const transcription = await this.aiManager.transcribeAudio(audioBuffer);
 
-			const filePath = "dev/transcription.md";
-			const file = this.app.vault.getAbstractFileByPath(filePath);
-			if (file && file instanceof TFile) {
-				await this.app.vault.modify(file, transcription);
-			} else {
-				await this.app.vault.create(filePath, transcription);
+			if (__IS_DEV__) {
+				await this.saveTranscriptionForDev(transcription);
 			}
 
-			this.aiManager.run(transcription);
+			await this.aiManager.run(transcription, editorState);
 		} catch (error) {
-			console.error("Error processing recording:", error);
-			new Notice("Error processing recording");
+			this.handleProcessingError(error);
 		}
+	}
+
+	private async saveTranscriptionForDev(transcription: string) {
+		const filePath = "dev/transcription.md";
+		try {
+			await this.saveTranscription(filePath, transcription);
+		} catch (error) {
+			console.error("Error saving transcription:", error);
+		}
+	}
+
+	private handleProcessingError(error: unknown) {
+		console.error("Error processing recording:", error);
+		new Notice("Error processing recording. Check console for details.");
+	}
+
+	private async saveTranscription(filePath: string, transcription: string) {
+		const file = this.app.vault.getAbstractFileByPath(filePath);
+		if (file instanceof TFile) {
+			await this.app.vault.modify(file, transcription);
+		} else {
+			await this.app.vault.create(filePath, transcription);
+		}
+	}
+
+	private createWaveform(analyser: AnalyserNode) {
+		this.stopWaveform();
+		if (this.floatingBar) {
+			this.waveformVisualizer = new WaveformVisualizer(
+				this.floatingBar.waveformContainer,
+				analyser,
+			);
+			this.waveformVisualizer.start();
+		}
+	}
+
+	private stopWaveform() {
+		if (this.waveformVisualizer) {
+			this.waveformVisualizer.stop();
+			this.waveformVisualizer = null;
+		}
+	}
+
+	private onRecordingStarted = () => {
+		console.log("Recording started");
+		const analyser = this.audioRecorder.getAnalyser();
+
+		if (this.floatingBar && analyser) {
+			this.floatingBar.show();
+			this.createWaveform(analyser);
+		}
+	};
+
+	private async onRecordingComplete(buffer: ArrayBuffer): Promise<void> {
+		console.log("Recording complete");
+		this.stopWaveform();
+		this.floatingBar?.setStatus("Processing recording...");
+		await this.processRecording(buffer);
+		this.floatingBar?.hide();
+	}
+
+	private async onRecordingError(error: unknown): Promise<void> {
+		console.error("Recording error:", error);
+		this.floatingBar?.setStatus(
+			`Error during recording: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		setTimeout(() => {
+			this.stopWaveform();
+			this.floatingBar?.hide();
+		}, 5000);
+	}
+
+	cancelOngoingOperation() {
+		this.aiManager.cancelOngoingOperation();
 	}
 }

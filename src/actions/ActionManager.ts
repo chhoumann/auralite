@@ -4,7 +4,7 @@ import type { Action, ActionContext } from "./Action";
 export class ActionManager {
 	private actions: Map<string, Action<z.AnyZodObject>> = new Map();
 
-	registerAction(action: Action<z.AnyZodObject>): void {
+	registerAction<T extends z.AnyZodObject>(action: Action<T>): void {
 		this.actions.set(action.id, action);
 	}
 

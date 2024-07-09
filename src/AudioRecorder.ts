@@ -1,5 +1,4 @@
-// biome-ignore lint/style/useNodejsImportProtocol: not using it here.
-import EventEmitter from "events";
+import { TypedEvents } from "./types/TypedEvents";
 
 interface AudioRecorderEvents {
 	dataAvailable: (data: Blob) => void;
@@ -11,16 +10,18 @@ interface AudioRecorderEvents {
 	error: (error: unknown) => void;
 }
 
-export class AudioRecorder extends EventEmitter {
+export class AudioRecorder extends TypedEvents<AudioRecorderEvents> {
 	private mediaRecorder: MediaRecorder | null = null;
 	private audioChunks: Blob[] = [];
 	private recordingPromise: Promise<ArrayBuffer> | null = null;
 	private resolveRecording: ((value: ArrayBuffer) => void) | null = null;
 	private rejectRecording: ((reason: unknown) => void) | null = null;
+	private audioContext: AudioContext | null = null;
+	private analyser: AnalyserNode | null = null;
 
 	private handleDataAvailable = (event: BlobEvent) => {
 		this.audioChunks.push(event.data);
-		this.emit("dataAvailable", event.data);
+		this.trigger("dataAvailable", event.data);
 	};
 
 	private handleStop = () => {
@@ -28,14 +29,13 @@ export class AudioRecorder extends EventEmitter {
 		audioBlob.arrayBuffer().then((buffer) => {
 			if (this.resolveRecording) {
 				this.resolveRecording(buffer);
-				this.emit("recordingComplete", buffer);
+				this.trigger("recordingComplete", buffer);
 			}
 		});
 	};
 
 	teardown() {
-		this.emit("teardown");
-		this.removeAllListeners();
+		this.trigger("teardown");
 		if (this.mediaRecorder) {
 			this.mediaRecorder.removeEventListener(
 				"dataavailable",
@@ -74,11 +74,17 @@ export class AudioRecorder extends EventEmitter {
 				this.rejectRecording = reject;
 			});
 
+			this.audioContext = new AudioContext();
+			const source = this.audioContext.createMediaStreamSource(stream);
+			this.analyser = this.audioContext.createAnalyser();
+			this.analyser.fftSize = 256;
+			source.connect(this.analyser);
+
 			this.mediaRecorder.start();
-			this.emit("recordingStarted");
+			this.trigger("recordingStarted");
 		} catch (error) {
 			console.error("Error starting recording:", error);
-			this.emit("error", error);
+			this.trigger("error", error);
 			throw error;
 		}
 	}
@@ -86,12 +92,12 @@ export class AudioRecorder extends EventEmitter {
 	stop(): Promise<ArrayBuffer> {
 		if (!this.mediaRecorder || this.mediaRecorder.state !== "recording") {
 			const error = new Error("No active recording to stop");
-			this.emit("error", error);
+			this.trigger("error", error);
 			return Promise.reject(error);
 		}
 
 		this.mediaRecorder.stop();
-		this.emit("recordingStopped");
+		this.trigger("recordingStopped");
 		return (
 			this.recordingPromise ??
 			Promise.reject(new Error("Recording promise not initialized"))
@@ -104,7 +110,7 @@ export class AudioRecorder extends EventEmitter {
 			if (this.rejectRecording) {
 				const error = new Error("Recording cancelled");
 				this.rejectRecording(error);
-				this.emit("recordingCancelled", error);
+				this.trigger("recordingCancelled", error);
 			}
 		}
 		this.teardown();
@@ -116,17 +122,7 @@ export class AudioRecorder extends EventEmitter {
 		);
 	}
 
-	override on<K extends keyof AudioRecorderEvents>(
-		event: K,
-		listener: AudioRecorderEvents[K],
-	): this {
-		return super.on(event, listener);
-	}
-
-	override emit<K extends keyof AudioRecorderEvents>(
-		event: K,
-		...args: Parameters<AudioRecorderEvents[K]>
-	): boolean {
-		return super.emit(event, ...args);
+	getAnalyser(): AnalyserNode | null {
+		return this.analyser;
 	}
 }

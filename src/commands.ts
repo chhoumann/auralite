@@ -21,6 +21,24 @@ export function registerCommands(plugin: OVSPlugin): void {
 				}
 			},
 		},
+		{
+			id: "toggle-ai-assistant-listening",
+			name: "Toggle AI Assistant Listening",
+			callback: () => {
+				if (plugin.isRecording) {
+					plugin.stopRecording();
+				} else {
+					plugin.startRecording();
+				}
+			},
+		},
+		{
+			id: "cancel-ongoing-operation",
+			name: "Cancel Ongoing Operation",
+			callback: () => {
+				plugin.cancelOngoingOperation();
+			},
+		},
 	];
 
 	for (const cmd of commands) {

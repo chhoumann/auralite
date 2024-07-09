@@ -50,6 +50,10 @@ const options = Object.freeze({
 					from: ["manifest.json"],
 					to: ["manifest.json"],
 				},
+				{
+					from: ["src/styles.css"],
+					to: ["styles.css"]
+				}
 			],
 		}),
 	],
