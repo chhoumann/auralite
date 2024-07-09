@@ -1,0 +1,45 @@
+.ovs-floating-bar-container {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+}
+
+.ovs-floating-bar-container.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+.ovs-floating-bar {
+    background-color: var(--background-secondary);
+    border-radius: 20px;
+    padding: 8px 16px; /* Reduced vertical padding */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 300px; /* Increased minimum width */
+    max-width: 90vw; /* Increased maximum width */
+}
+
+.ovs-waveform-container, .ovs-status-container {
+    width: 100%;
+    height: 40px; /* Reduced height */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.ovs-status-container {
+    font-size: 14px;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 4px 0; /* Added some vertical padding */
+}

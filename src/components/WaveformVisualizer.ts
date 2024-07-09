@@ -22,6 +22,8 @@ export class WaveformVisualizer {
 			cancelAnimationFrame(this.animationFrameId);
 			this.animationFrameId = null;
 		}
+		
+		this.canvas.remove();
 	}
 
 	private draw = () => {

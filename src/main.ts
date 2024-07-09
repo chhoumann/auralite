@@ -18,6 +18,7 @@ import { ActionManager } from "./actions/ActionManager";
 import { AIManager } from "./ai";
 import { registerCommands } from "./commands";
 import { WaveformVisualizer } from "./components/WaveformVisualizer";
+import { FloatingBar } from "./components/FloatingBar";
 
 declare const __IS_DEV__: boolean;
 
@@ -28,8 +29,8 @@ export default class OVSPlugin extends Plugin {
 	private audioRecorder: AudioRecorder = new AudioRecorder();
 	private aiManager!: AIManager;
 	private _isRecording = false;
-	private statusNotice: Notice | null = null;
 	private waveformVisualizer: WaveformVisualizer | null = null;
+	private floatingBar: FloatingBar | null = null;
 
 	public get isRecording(): boolean {
 		return this._isRecording;
@@ -95,6 +96,8 @@ export default class OVSPlugin extends Plugin {
 		this.registerEvent(
 			this.audioRecorder.on("error", this.onRecordingError.bind(this)),
 		);
+
+		this.floatingBar = new FloatingBar(this.app.workspace.containerEl);
 	}
 
 	async startRecording() {
@@ -125,6 +128,16 @@ export default class OVSPlugin extends Plugin {
 			if (this.audioRecorder) {
 				this.audioRecorder.cancel();
 				this.audioRecorder.teardown();
+			}
+
+			if (this.floatingBar) {
+				this.floatingBar.remove();
+				this.floatingBar = null;
+			}
+
+			if (this.waveformVisualizer) {
+				this.waveformVisualizer.stop();
+				this.waveformVisualizer = null;
 			}
 		} catch (error) {
 			console.error("Error during plugin unload:", error);
@@ -168,10 +181,17 @@ export default class OVSPlugin extends Plugin {
 		}
 	}
 
-	private createWaveform(waveformContainer: HTMLDivElement) {
+	private createWaveform(waveformContainer: HTMLElement) {
 		const analyser = this.audioRecorder.getAnalyser();
 		if (!analyser) return;
 
+		// Stop and remove any existing waveform visualizer
+		this.stopWaveform();
+
+		// Clear the waveform container
+		waveformContainer.empty();
+
+		// Create a new WaveformVisualizer instance
 		this.waveformVisualizer = new WaveformVisualizer(
 			waveformContainer,
 			analyser,
@@ -188,27 +208,28 @@ export default class OVSPlugin extends Plugin {
 
 	private onRecordingStarted = () => {
 		console.log("Recording started");
-		this.statusNotice = new Notice("", 99999999);
-		this.createWaveform(this.statusNotice.noticeEl.createEl("div"));
+		if (this.floatingBar) {
+			this.floatingBar.show();
+			this.createWaveform(this.floatingBar._waveformContainer);
+		}
 	};
 
 	private async onRecordingComplete(buffer: ArrayBuffer): Promise<void> {
 		console.log("Recording complete");
 		this.stopWaveform();
-		this.statusNotice?.hide();
-		this.statusNotice = null;
+		this.floatingBar?.setStatus("Processing recording...");
 		await this.processRecording(buffer);
+		this.floatingBar?.hide();
 	}
 
 	private async onRecordingError(error: unknown): Promise<void> {
 		console.error("Recording error:", error);
-		this.statusNotice?.setMessage(
+		this.floatingBar?.setStatus(
 			`Error during recording: ${error instanceof Error ? error.message : String(error)}`,
 		);
 		setTimeout(() => {
 			this.stopWaveform();
-			this.statusNotice?.hide();
-			this.statusNotice = null;
+			this.floatingBar?.hide();
 		}, 5000);
 	}
 
