@@ -1,7 +1,7 @@
-import { removeWhitespace } from "@/utils";
+import { getOpenAIStreamProcessor, removeWhitespace } from "@/utils";
 import { createStreamingInserter } from "@/utils";
-import { getInstructorStreamProcessor } from "@/utils";
-import type { Editor, EditorPosition, View } from "obsidian";
+import { type Editor, type EditorPosition, MarkdownView } from "obsidian";
+import type { ChatCompletion, ChatCompletionChunk } from "openai/resources";
 import type { Stream } from "openai/streaming";
 import { z } from "zod";
 import { Action, type ActionContext } from "./Action";
@@ -29,9 +29,9 @@ export class TranscribeAction extends Action<
 			Remove the part where the user asked you to transcribe the audio and focus actual content.
         `);
 
-	private activeView?: View;
 	private cursor?: EditorPosition;
 	private activeEditor?: Editor;
+	private activeView?: MarkdownView;
 
 	constructor() {
 		super(
@@ -39,45 +39,40 @@ export class TranscribeAction extends Action<
 			TranscribeAction.inputSchema,
 			TranscribeAction.systemPrompt,
 			true,
+			false,
 		);
 	}
 
 	protected override async preExecute(context: ActionContext): Promise<void> {
-		const {
-			state: {
-				editor: { activeView, cursor, activeEditor },
-			},
-		} = context;
-		this.activeView = activeView;
-
-		if (!this.activeView) {
-			console.error("No active Markdown view");
-			return;
-		}
+		const activeView =
+			context.app.workspace.getActiveViewOfType(MarkdownView) ?? undefined;
+		const cursor = activeView?.editor.getCursor();
 
 		this.cursor = cursor;
-		this.activeEditor = activeEditor;
+		this.activeEditor = activeView?.editor;
+		this.activeView = activeView;
 	}
 
 	protected async performAction(
-		input: z.infer<typeof TranscribeAction.inputSchema>,
+		input: ChatCompletion,
 		context: ActionContext,
 	): Promise<void> {
-		if (!this.activeView || !this.cursor || !this.activeEditor) {
-			console.error("No active Markdown view or cursor position");
-			return;
+		if (!this.activeEditor || !this.cursor || !this.activeView) {
+			throw new Error("No active editor, view, or cursor position");
 		}
 
-		this.activeEditor.replaceRange(input.transcription, this.cursor);
+		this.activeEditor.replaceRange(
+			input.choices[0].message.content ?? "",
+			this.cursor,
+		);
 	}
 
 	protected override async performActionStream(
-		stream: Stream<z.infer<typeof TranscribeAction.inputSchema>>,
+		stream: Stream<ChatCompletionChunk>,
 		context: ActionContext,
 	): Promise<void> {
-		if (!this.activeView || !this.cursor || !this.activeEditor) {
-			console.error("No active Markdown view or cursor position");
-			return;
+		if (!this.activeEditor || !this.cursor || !this.activeView) {
+			throw new Error("No active editor, view, or cursor position");
 		}
 
 		const { insertStreamedContent, flush } = createStreamingInserter(
@@ -86,10 +81,9 @@ export class TranscribeAction extends Action<
 			{ bufferSize: 50 },
 		);
 
-		const { processor, fullContent } = await getInstructorStreamProcessor({
+		const { processor, fullContent } = await getOpenAIStreamProcessor({
 			stream,
 			context,
-			chunkKey: "transcription",
 		});
 
 		try {
