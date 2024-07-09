@@ -110,6 +110,10 @@
                     {
                         "path": "out/manifest.json",
                         "label": "manifest.json"
+                    },
+                    {
+                        "path": "out/styles.css",
+                        "label": "styles.css"
                     }
                 ],
                 "successComment": "This ${issue.pull_request ? 'pull request' : 'issue'} is included in version ${nextRelease.version}",
