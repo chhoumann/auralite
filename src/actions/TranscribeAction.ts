@@ -1,10 +1,10 @@
 import { removeWhitespace } from "@/utils";
 import { createStreamingInserter } from "@/utils";
+import { getInstructorStreamProcessor } from "@/utils";
 import type { Editor, EditorPosition, View } from "obsidian";
 import type { Stream } from "openai/streaming";
 import { z } from "zod";
 import { Action, type ActionContext } from "./Action";
-import { getInstructorStreamProcessor } from "@/utils";
 
 export class TranscribeAction extends Action<
 	typeof TranscribeAction.inputSchema
@@ -80,9 +80,10 @@ export class TranscribeAction extends Action<
 			return;
 		}
 
-		const insertStreamedContent = createStreamingInserter(
+		const { insertStreamedContent, flush } = createStreamingInserter(
 			this.activeEditor,
 			this.cursor,
+			{ bufferSize: 50 },
 		);
 
 		const { processor, fullContent } = await getInstructorStreamProcessor({
@@ -99,6 +100,8 @@ export class TranscribeAction extends Action<
 
 				insertStreamedContent(chunk);
 			}
+
+			flush();
 
 			context.results.set(this.id, { content: fullContent.value });
 			console.log(context.results);

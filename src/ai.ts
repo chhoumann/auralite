@@ -128,8 +128,10 @@ export class AIManager {
 		const input = new Map();
 
 		const necessaryContexts = actionResult.necessaryContexts ?? [];
-		const validContexts = necessaryContexts.filter(context => context in editorState);
-		
+		const validContexts = necessaryContexts.filter(
+			(context) => context in editorState,
+		);
+
 		for (const context of validContexts) {
 			input.set(context, editorState[context]);
 		}

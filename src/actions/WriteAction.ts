@@ -1,17 +1,17 @@
 import { removeWhitespace } from "@/utils";
 import { createStreamingInserter } from "@/utils";
+import { getOpenAIStreamProcessor } from "@/utils";
 import { type Editor, type EditorPosition, MarkdownView } from "obsidian";
 import type { ChatCompletion, ChatCompletionChunk } from "openai/resources";
 import type { Stream } from "openai/streaming";
 import { z } from "zod";
 import { Action, type ActionContext } from "./Action";
-import { getOpenAIStreamProcessor } from "@/utils";
 
 export class WriteAction extends Action<typeof WriteAction.inputSchema> {
-	readonly description = "Write content to the current file.";
+	readonly description = "Write content where the user has their cursor.";
 
 	static inputSchema = z.object({
-		content: z.string().describe("The content to write to the file."),
+		never: z.never(),
 	});
 
 	static systemPrompt = removeWhitespace(`You are an AI assistant writing content directly into an Obsidian note.
@@ -23,6 +23,7 @@ export class WriteAction extends Action<typeof WriteAction.inputSchema> {
 
 	private cursor?: EditorPosition;
 	private activeEditor?: Editor;
+	private activeView?: MarkdownView;
 
 	constructor() {
 		super(
@@ -41,14 +42,15 @@ export class WriteAction extends Action<typeof WriteAction.inputSchema> {
 
 		this.cursor = cursor;
 		this.activeEditor = activeView?.editor;
+		this.activeView = activeView;
 	}
 
 	protected async performAction(
 		input: ChatCompletion,
 		context: ActionContext,
 	): Promise<void> {
-		if (!this.activeEditor || !this.cursor) {
-			throw new Error("No active editor or cursor position");
+		if (!this.activeEditor || !this.cursor || !this.activeView) {
+			throw new Error("No active editor, view, or cursor position");
 		}
 		this.activeEditor.replaceRange(
 			input.choices[0].message.content ?? "",
@@ -60,13 +62,24 @@ export class WriteAction extends Action<typeof WriteAction.inputSchema> {
 		stream: Stream<ChatCompletionChunk>,
 		context: ActionContext,
 	): Promise<void> {
-		if (!this.activeEditor || !this.cursor) {
-			throw new Error("No active editor or cursor position");
+		if (!this.activeEditor || !this.cursor || !this.activeView) {
+			throw new Error("No active editor, view, or cursor position");
 		}
 
-		const insertStreamedContent = createStreamingInserter(
+		const { insertStreamedContent, flush } = createStreamingInserter(
 			this.activeEditor,
 			this.cursor,
+			{
+				// Maybe add this as a setting?
+				// setCursor: (cursor) => {
+				// 	this.activeEditor?.setCursor(cursor);
+				// 	this.activeEditor?.scrollIntoView({
+				// 		from: { line: cursor.line, ch: cursor.ch },
+				// 		to: { line: cursor.line, ch: cursor.ch },
+				// 	}, true);
+				// },
+				bufferSize: 50,
+			},
 		);
 
 		const { processor, fullContent } = await getOpenAIStreamProcessor({
@@ -82,6 +95,8 @@ export class WriteAction extends Action<typeof WriteAction.inputSchema> {
 
 				insertStreamedContent(chunk);
 			}
+
+			flush();
 
 			context.results.set(this.id, { content: fullContent.value });
 			console.log(context.results);

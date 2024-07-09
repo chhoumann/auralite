@@ -1,31 +1,55 @@
 import type { Editor, EditorPosition } from "obsidian";
-import { ActionContext } from "./actions/Action";
 import type { ChatCompletionChunk } from "openai/resources";
 import type { Stream } from "openai/streaming";
 import type { z } from "zod";
+import type { ActionContext } from "./actions/Action";
 
 export function createStreamingInserter(
 	editor: Editor,
 	initialCursor: EditorPosition,
+	options: Partial<{
+		setCursor: (cursor: EditorPosition) => void;
+		bufferSize: number;
+	}> = { bufferSize: 100 },
 ) {
 	const lastCursor = { ...initialCursor };
+	let buffer = "";
+	const bufferSize = options.bufferSize ?? 100;
 
-	return function insertStreamedContent(chunk: string) {
-		const lines = chunk.split(/\r\n|\n|\r/);
-		if (lines.length > 1) {
-			const uniqueLines = lines.filter(
-				(line, index, array) => line !== array[index - 1],
-			);
-
-			for (const line of uniqueLines) {
-				editor.replaceRange(`${line}\n`, lastCursor);
-				lastCursor.line++;
-				lastCursor.ch = 0;
-			}
-		} else {
-			editor.replaceRange(chunk, lastCursor);
-			lastCursor.ch += chunk.length;
+	function insertBuffer() {
+		if (buffer.length > 0) {
+			editor.replaceRange(buffer, lastCursor);
+			lastCursor.ch += buffer.length;
+			buffer = "";
+			return true;
 		}
+		return false;
+	}
+
+	return {
+		insertStreamedContent(chunk: string) {
+			buffer += chunk;
+			const lines = buffer.split("\n");
+
+			if (lines.length > 1) {
+				for (let i = 0; i < lines.length - 1; i++) {
+					editor.replaceRange(`${lines[i]}\n`, lastCursor);
+					lastCursor.line++;
+					lastCursor.ch = 0;
+				}
+				buffer = lines[lines.length - 1];
+			}
+
+			if (buffer.length > bufferSize) {
+				insertBuffer();
+			}
+
+			options.setCursor?.(lastCursor);
+		},
+		flush() {
+			insertBuffer();
+			options.setCursor?.(lastCursor);
+		},
 	};
 }
 
