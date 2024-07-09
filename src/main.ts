@@ -169,10 +169,13 @@ export default class OVSPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	private async processRecording(audioBuffer: ArrayBuffer) {
+	private async processRecording(audioData: {
+		buffer: ArrayBuffer;
+		mimeType: string;
+	}) {
 		try {
 			const editorState = await this.contextBuilder.captureEditorState();
-			const transcription = await this.aiManager.transcribeAudio(audioBuffer);
+			const transcription = await this.aiManager.transcribeAudio(audioData);
 
 			if (__IS_DEV__) {
 				await this.saveTranscriptionForDev(transcription);
@@ -235,11 +238,14 @@ export default class OVSPlugin extends Plugin {
 		}
 	};
 
-	private async onRecordingComplete(buffer: ArrayBuffer): Promise<void> {
+	private async onRecordingComplete(data: {
+		buffer: ArrayBuffer;
+		mimeType: string;
+	}): Promise<void> {
 		console.log("Recording complete");
 		this.stopWaveform();
 		this.floatingBar?.setStatus("Processing recording...");
-		await this.processRecording(buffer);
+		await this.processRecording(data);
 		this.floatingBar?.hide();
 	}
 

@@ -28,13 +28,16 @@ export class AIManager {
 		return this.instructorClient;
 	}
 
-	async transcribeAudio(audioBuffer: ArrayBuffer): Promise<string> {
+	async transcribeAudio(audioData: {
+		buffer: ArrayBuffer;
+		mimeType: string;
+	}): Promise<string> {
 		this.abortController = new AbortController();
 
 		try {
 			const response = await this.oai.audio.transcriptions.create(
 				{
-					file: new File([audioBuffer], "audio.wav", { type: "audio/wav" }),
+					file: new File([audioData.buffer], `audio.${audioData.mimeType}`),
 					model: "whisper-1",
 				},
 				{ signal: this.abortController.signal },

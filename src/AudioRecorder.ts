@@ -2,7 +2,7 @@ import { TypedEvents } from "./types/TypedEvents";
 
 interface AudioRecorderEvents {
 	dataAvailable: (data: Blob) => void;
-	recordingComplete: (buffer: ArrayBuffer) => void;
+	recordingComplete: (data: { buffer: ArrayBuffer; mimeType: string }) => void;
 	recordingStarted: () => void;
 	recordingStopped: () => void;
 	recordingCancelled: (error: Error) => void;
@@ -13,11 +13,32 @@ interface AudioRecorderEvents {
 export class AudioRecorder extends TypedEvents<AudioRecorderEvents> {
 	private mediaRecorder: MediaRecorder | null = null;
 	private audioChunks: Blob[] = [];
-	private recordingPromise: Promise<ArrayBuffer> | null = null;
-	private resolveRecording: ((value: ArrayBuffer) => void) | null = null;
+	private recordingPromise: Promise<{
+		buffer: ArrayBuffer;
+		mimeType: string;
+	}> | null = null;
+	private resolveRecording:
+		| ((value: { buffer: ArrayBuffer; mimeType: string }) => void)
+		| null = null;
 	private rejectRecording: ((reason: unknown) => void) | null = null;
 	private audioContext: AudioContext | null = null;
 	private analyser: AnalyserNode | null = null;
+
+	private getMimeTypeExtension(mimeType: string): string {
+		const mimeToExtMap: { [key: string]: string } = {
+			"audio/webm": "webm",
+			"audio/ogg": "ogg",
+			"audio/wav": "wav",
+			"audio/mpeg": "mp3",
+			"audio/mp4": "mp4",
+			"audio/x-m4a": "m4a",
+			"audio/flac": "flac",
+		};
+
+		// Remove codecs information if present
+		const baseMimeType = mimeType.split(";")[0];
+		return mimeToExtMap[baseMimeType] || "webm"; // Default to 'webm' if unknown
+	}
 
 	private handleDataAvailable = (event: BlobEvent) => {
 		this.audioChunks.push(event.data);
@@ -25,11 +46,13 @@ export class AudioRecorder extends TypedEvents<AudioRecorderEvents> {
 	};
 
 	private handleStop = () => {
-		const audioBlob = new Blob(this.audioChunks, { type: "audio/wav" });
+		const fullMimeType = this.mediaRecorder?.mimeType || "audio/webm";
+		const mimeType = this.getMimeTypeExtension(fullMimeType);
+		const audioBlob = new Blob(this.audioChunks, { type: fullMimeType });
 		audioBlob.arrayBuffer().then((buffer) => {
 			if (this.resolveRecording) {
-				this.resolveRecording(buffer);
-				this.trigger("recordingComplete", buffer);
+				this.resolveRecording({ buffer, mimeType });
+				this.trigger("recordingComplete", { buffer, mimeType });
 			}
 		});
 	};
@@ -89,7 +112,7 @@ export class AudioRecorder extends TypedEvents<AudioRecorderEvents> {
 		}
 	}
 
-	stop(): Promise<ArrayBuffer> {
+	stop(): Promise<{ buffer: ArrayBuffer; mimeType: string }> {
 		if (!this.mediaRecorder || this.mediaRecorder.state !== "recording") {
 			const error = new Error("No active recording to stop");
 			this.trigger("error", error);
