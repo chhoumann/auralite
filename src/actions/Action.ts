@@ -64,7 +64,7 @@ export abstract class Action<TInput extends z.AnyZodObject> {
 			},
 		];
 
-		console.log(msgs);
+		console.log("messages:", msgs);
 
 		if (this.supportsStreaming) {
 			const stream = await context.ai.createChatCompletionStream(
