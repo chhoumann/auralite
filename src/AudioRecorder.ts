@@ -1,4 +1,4 @@
-import { type EventRef, Events } from "obsidian";
+import { TypedEvents } from "./types/TypedEvents";
 
 interface AudioRecorderEvents {
 	dataAvailable: (data: Blob) => void;
@@ -10,7 +10,7 @@ interface AudioRecorderEvents {
 	error: (error: unknown) => void;
 }
 
-export class AudioRecorder extends Events {
+export class AudioRecorder extends TypedEvents<AudioRecorderEvents> {
 	private mediaRecorder: MediaRecorder | null = null;
 	private audioChunks: Blob[] = [];
 	private recordingPromise: Promise<ArrayBuffer> | null = null;
@@ -124,27 +124,5 @@ export class AudioRecorder extends Events {
 
 	getAnalyser(): AnalyserNode | null {
 		return this.analyser;
-	}
-
-	override on<K extends keyof AudioRecorderEvents>(
-		event: K,
-		callback: AudioRecorderEvents[K],
-		ctx?: unknown,
-	): EventRef {
-		return super.on(event, callback, ctx);
-	}
-
-	override off<K extends keyof AudioRecorderEvents>(
-		event: K,
-		callback: AudioRecorderEvents[K],
-	): void {
-		super.off(event, callback);
-	}
-
-	override trigger<K extends keyof AudioRecorderEvents>(
-		event: K,
-		...args: Parameters<AudioRecorderEvents[K]>
-	): void {
-		super.trigger(event, ...args);
 	}
 }
