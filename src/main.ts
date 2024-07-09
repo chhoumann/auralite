@@ -36,33 +36,53 @@ export default class OVSPlugin extends Plugin {
 
 	override async onload() {
 		await this.loadSettings();
-		this.actionManager = new ActionManager();
+		this.initializeComponents();
+		this.setupEventListeners();
+		registerCommands(this);
+		this.addSettingTab(new OVSSettingTab(this.app, this));
+	}
 
+	private initializeComponents() {
+		this.actionManager = new ActionManager();
+		this.registerActions();
+
+		const openAIClient = this.createOpenAIClient();
+		this.contextBuilder = new ContextBuilder(this);
+		this.aiManager = this.createAIManager(openAIClient);
+
+		this.floatingBar = new FloatingBar(this.app.workspace.containerEl);
+	}
+
+	private registerActions() {
 		this.actionManager.registerAction(new CreateNoteAction());
 		this.actionManager.registerAction(new NoopAction());
 		this.actionManager.registerAction(new TranscribeAction());
 		this.actionManager.registerAction(new WriteAction());
+	}
 
-		const openAIClient = new OpenAI({
+	private createOpenAIClient() {
+		return new OpenAI({
 			apiKey: this.settings.OPENAI_API_KEY,
 			dangerouslyAllowBrowser: true,
 		});
+	}
 
-		this.contextBuilder = new ContextBuilder(this);
-
-		this.aiManager = new AIManager(
+	private createAIManager(openAIClient: OpenAI) {
+		return new AIManager(
 			this,
 			this.actionManager.getAllActionIds(),
 			openAIClient,
 			Instructor({ client: openAIClient, mode: "TOOLS" }),
 			this.contextBuilder,
 		);
+	}
 
-		registerCommands(this);
+	private setupEventListeners() {
+		this.setupPushToTalkEvents();
+		this.setupAudioRecorderEvents();
+	}
 
-		this.addSettingTab(new OVSSettingTab(this.app, this));
-
-		// == Push-to-Talk Ribbon Events ==
+	private setupPushToTalkEvents() {
 		const ribbonIcon = this.addRibbonIcon("mic", "Push to talk", () => {});
 		this.registerDomEvent(
 			ribbonIcon,
@@ -75,8 +95,9 @@ export default class OVSPlugin extends Plugin {
 			"mouseleave",
 			this.stopRecording.bind(this),
 		);
+	}
 
-		// == AudioRecorder Events ==
+	private setupAudioRecorderEvents() {
 		this.registerEvent(
 			this.audioRecorder.on(
 				"recordingStarted",
@@ -94,8 +115,6 @@ export default class OVSPlugin extends Plugin {
 		this.registerEvent(
 			this.audioRecorder.on("error", this.onRecordingError.bind(this)),
 		);
-
-		this.floatingBar = new FloatingBar(this.app.workspace.containerEl);
 	}
 
 	async startRecording() {
@@ -156,18 +175,27 @@ export default class OVSPlugin extends Plugin {
 			const transcription = await this.aiManager.transcribeAudio(audioBuffer);
 
 			if (__IS_DEV__) {
-				const filePath = "dev/transcription.md";
-
-				this.saveTranscription(filePath, transcription).catch((error) => {
-					console.error("Error saving transcription:", error);
-				});
+				await this.saveTranscriptionForDev(transcription);
 			}
 
 			await this.aiManager.run(transcription, editorState);
 		} catch (error) {
-			console.error("Error processing recording:", error);
-			new Notice("Error processing recording. Check console for details.");
+			this.handleProcessingError(error);
 		}
+	}
+
+	private async saveTranscriptionForDev(transcription: string) {
+		const filePath = "dev/transcription.md";
+		try {
+			await this.saveTranscription(filePath, transcription);
+		} catch (error) {
+			console.error("Error saving transcription:", error);
+		}
+	}
+
+	private handleProcessingError(error: unknown) {
+		console.error("Error processing recording:", error);
+		new Notice("Error processing recording. Check console for details.");
 	}
 
 	private async saveTranscription(filePath: string, transcription: string) {
