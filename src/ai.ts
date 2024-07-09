@@ -3,6 +3,8 @@ import type OVSPlugin from "@/main";
 import { removeWhitespace } from "@/utils";
 import type Instructor from "@instructor-ai/instructor";
 import type OpenAI from "openai";
+import type { ClientOptions } from "openai";
+import type { ChatCompletionMessageParam } from "openai/resources";
 import type { Stream } from "openai/streaming";
 import { z } from "zod";
 import type { ContextBuilder } from "./ContextBuilder";
@@ -14,7 +16,7 @@ export class AIManager {
 		private plugin: OVSPlugin,
 		private actionIds: string[],
 		private oai: OpenAI,
-		private client: ReturnType<typeof Instructor>,
+		private instructorClient: ReturnType<typeof Instructor>,
 		private contextBuilder: ContextBuilder,
 	) {}
 
@@ -23,7 +25,7 @@ export class AIManager {
 	}
 
 	getInstructorClient(): ReturnType<typeof Instructor> {
-		return this.client;
+		return this.instructorClient;
 	}
 
 	async transcribeAudio(audioBuffer: ArrayBuffer): Promise<string> {
@@ -99,8 +101,9 @@ export class AIManager {
 						],
 					),
 				)
+				.optional()
 				.describe(
-					`The necessary context to execute the action. Here are the available contexts:\n${Object.entries(
+					`The necessary context to execute the action.\nOnly include the context that is necessary to execute the action.\nHere are the available contexts:\n${Object.entries(
 						possibleContexts,
 					)
 						.map(([key, value]) => `- ${key}: ${value}`)
@@ -108,24 +111,26 @@ export class AIManager {
 				),
 		});
 
-		const actionResult = await this.createChatCompletion(actionSchema, [
-			{
-				role: "system",
-				content: "You are an assistant that can execute actions",
-			},
-			{
-				role: "user",
-				content: userInput,
-			},
-		]);
+		const actionResult = await this.createInstructorChatCompletion(
+			actionSchema,
+			[
+				{
+					role: "system",
+					content: "You are an assistant that can execute actions",
+				},
+				{
+					role: "user",
+					content: userInput,
+				},
+			],
+		);
 
 		const input = new Map();
 
-		for (const context of actionResult.necessaryContexts) {
-			if (!(context in editorState)) {
-				continue;
-			}
-
+		const necessaryContexts = actionResult.necessaryContexts ?? [];
+		const validContexts = necessaryContexts.filter(context => context in editorState);
+		
+		for (const context of validContexts) {
 			input.set(context, editorState[context]);
 		}
 
@@ -141,16 +146,16 @@ export class AIManager {
 		this.executeAction(actionResult.action, input, editorState);
 	}
 
-	async createChatCompletion<TSchema extends z.AnyZodObject>(
+	async createInstructorChatCompletion<TSchema extends z.AnyZodObject>(
 		schema: TSchema,
-		messages: Array<{ role: string; content: string }>,
+		messages: Array<ChatCompletionMessageParam>,
 	) {
 		this.abortController = new AbortController();
 		try {
-			const response = await this.client.chat.completions.create(
+			const response = await this.instructorClient.chat.completions.create(
 				{
 					messages,
-					model: "gpt-4",
+					model: this.plugin.settings.OPENAI_MODEL,
 					response_model: {
 						schema: schema,
 						name: "User",
@@ -170,16 +175,16 @@ export class AIManager {
 		}
 	}
 
-	async createChatCompletionStream<TSchema extends z.AnyZodObject>(
+	async createInstructorChatCompletionStream<TSchema extends z.AnyZodObject>(
 		schema: TSchema,
-		messages: Array<{ role: string; content: string }>,
+		messages: Array<ChatCompletionMessageParam>,
 	): Promise<Stream<z.infer<TSchema>>> {
 		this.abortController = new AbortController();
 		try {
-			const stream = await this.client.chat.completions.create(
+			const stream = await this.instructorClient.chat.completions.create(
 				{
 					messages,
-					model: "gpt-4",
+					model: this.plugin.settings.OPENAI_MODEL,
 					response_model: {
 						schema: schema,
 						name: "User",
@@ -192,6 +197,55 @@ export class AIManager {
 			//@ts-ignore: don't want to type this rn
 			return stream;
 		} catch (error: unknown) {
+			if (error instanceof Error && error.name === "AbortError") {
+				console.log("Chat completion stream was cancelled");
+				throw new Error("Chat completion stream cancelled");
+			}
+			console.error("Error creating chat completion stream:", error);
+			throw new Error("Failed to create chat completion stream");
+		}
+	}
+
+	async createOpenAIChatCompletion(
+		messages: Array<ChatCompletionMessageParam>,
+		options?: Partial<ClientOptions>,
+	) {
+		this.abortController = new AbortController();
+		try {
+			return await this.oai.chat.completions.create(
+				{
+					messages,
+					model: this.plugin.settings.OPENAI_MODEL,
+					...options,
+				},
+				{ signal: this.abortController.signal },
+			);
+		} catch (error) {
+			if (error instanceof Error && error.name === "AbortError") {
+				console.log("Chat completion was cancelled");
+				throw new Error("Chat completion cancelled");
+			}
+			console.error("Error creating chat completion:", error);
+			throw new Error("Failed to create chat completion");
+		}
+	}
+
+	async createOpenAIChatCompletionStream(
+		messages: Array<ChatCompletionMessageParam>,
+		options?: Partial<ClientOptions>,
+	) {
+		this.abortController = new AbortController();
+		try {
+			return await this.oai.chat.completions.create(
+				{
+					messages,
+					model: this.plugin.settings.OPENAI_MODEL,
+					stream: true,
+					...options,
+				},
+				{ signal: this.abortController.signal },
+			);
+		} catch (error) {
 			if (error instanceof Error && error.name === "AbortError") {
 				console.log("Chat completion stream was cancelled");
 				throw new Error("Chat completion stream cancelled");
