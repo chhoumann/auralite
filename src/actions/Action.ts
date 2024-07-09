@@ -2,11 +2,29 @@ import type { AIManager } from "@/ai";
 import type OVSPlugin from "@/main";
 import { openFile } from "@/obsidianUtils";
 import type Instructor from "@instructor-ai/instructor";
-import type { Editor, App, EditorPosition, View } from "obsidian";
+import {
+	type App,
+	type Editor,
+	type EditorPosition,
+	MarkdownView,
+	type View,
+} from "obsidian";
 import type OpenAI from "openai";
+import type { Stream } from "openai/streaming";
 import { z } from "zod";
 import { removeWhitespace } from "./removeWhitespace";
-import type { Stream } from "openai/streaming";
+
+export type EditorState = {
+	activeView: View;
+	activeEditor: Editor;
+	cursor: EditorPosition;
+	currentSelection: string;
+	currentLine: string;
+	currentFile: {
+		name: string;
+		content: string;
+	};
+};
 
 export interface ActionContext {
 	plugin: OVSPlugin;
@@ -17,11 +35,7 @@ export interface ActionContext {
 	results: Map<string, unknown>;
 	abortSignal: AbortSignal;
 	state: {
-		editor: {
-			activeView?: View;
-			activeEditor?: Editor;
-			cursor?: EditorPosition;
-		};
+		editor: Partial<EditorState>;
 	};
 }
 
@@ -190,12 +204,6 @@ export class CreateNoteAction extends Action<
 			input.content || "",
 		);
 
-		if (context.abortSignal.aborted) {
-			// Optionally, you might want to delete the created note if cancelled
-			await context.app.vault.delete(note);
-			throw new Error("Action cancelled");
-		}
-
 		openFile(context.app, note, {
 			paneType: input.paneType,
 			direction: input.direction,
@@ -349,7 +357,6 @@ export class WriteAction extends Action<typeof WriteAction.inputSchema> {
         Use LaTeX syntax for mathematical notation, surrounded by $$ for block equations or $ for inline expressions.
     `);
 
-	private activeView?: View;
 	private cursor?: EditorPosition;
 	private activeEditor?: Editor;
 
@@ -363,18 +370,12 @@ export class WriteAction extends Action<typeof WriteAction.inputSchema> {
 	}
 
 	protected override async preExecute(context: ActionContext): Promise<void> {
-		const {
-			state: {
-				editor: { activeView, cursor, activeEditor },
-			},
-		} = context;
-		this.activeView = activeView;
-		this.cursor = cursor;
-		this.activeEditor = activeEditor;
+		const activeView =
+			context.app.workspace.getActiveViewOfType(MarkdownView) ?? undefined;
+		const cursor = activeView?.editor.getCursor();
 
-		if (!this.activeView || !this.cursor || !this.activeEditor) {
-			throw new Error("No active Markdown view or cursor position");
-		}
+		this.cursor = cursor;
+		this.activeEditor = activeView?.editor;
 	}
 
 	protected async performAction(
@@ -418,7 +419,7 @@ export class WriteAction extends Action<typeof WriteAction.inputSchema> {
 
 				lastInsertedLength += newContent.length;
 
-				const lines = newContent.split('\n');
+				const lines = newContent.split("\n");
 				if (lines.length > 1) {
 					for (const line of lines) {
 						this.activeEditor.replaceRange(`${line}\n`, lastCursor);

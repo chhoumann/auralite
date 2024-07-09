@@ -1,5 +1,6 @@
 import { Notice, Plugin, TFile } from "obsidian";
 import { AudioRecorder } from "./AudioRecorder";
+import { ContextBuilder } from "./ContextBuilder";
 import {
 	DEFAULT_SETTINGS,
 	type OVSPluginSettings,
@@ -15,7 +16,6 @@ import { ActionManager } from "./actions/ActionManager";
 import { AIManager } from "./ai";
 import { registerCommands } from "./commands";
 import { WaveformVisualizer } from "./components/WaveformVisualizer";
-import { ContextBuilder } from "./ContextBuilder";
 
 export default class OVSPlugin extends Plugin {
 	settings!: OVSPluginSettings;

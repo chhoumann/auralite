@@ -1,11 +1,11 @@
 import Instructor from "@instructor-ai/instructor";
 import OpenAI from "openai";
-import { z } from "zod";
-import type OVSPlugin from "./main";
 import type { Stream } from "openai/streaming";
+import { z } from "zod";
 import { ContextBuilder } from "./ContextBuilder";
+import type { EditorState } from "./actions/Action";
 import { removeWhitespace } from "./actions/removeWhitespace";
-import { TFile } from "obsidian";
+import type OVSPlugin from "./main";
 
 export class AIManager {
 	private oai: OpenAI;
@@ -64,7 +64,7 @@ export class AIManager {
 	async executeAction(
 		action: string,
 		initialInput: Map<string, unknown>,
-		editorState: ReturnType<typeof ContextBuilder.prototype.captureEditorState>,
+		editorState: Partial<EditorState>,
 	) {
 		this.abortController = new AbortController();
 		const context = this.contextBuilder.build(this, initialInput, editorState);
@@ -81,10 +81,7 @@ export class AIManager {
 		}
 	}
 
-	async run(
-		userInput: string,
-		editorState: ReturnType<typeof ContextBuilder.prototype.captureEditorState>,
-	) {
+	async run(userInput: string, editorState: Partial<EditorState>) {
 		const actionsList = this.actionIds.map(
 			(actionId) =>
 				`- ${actionId}: ${this.plugin.actionManager?.getAction(actionId)?.description}`,
@@ -137,46 +134,11 @@ export class AIManager {
 		const input = new Map();
 
 		for (const context of actionResult.necessaryContexts) {
-			switch (context) {
-				case "currentFile": {
-					const file = this.plugin.app.workspace.getActiveFile();
-					if (!file || !(file instanceof TFile)) {
-						input.set(context, "No file open");
-						break;
-					}
-
-					input.set("currentFileName", file.name);
-					input.set(
-						"currentFileContent",
-						await this.plugin.app.vault.cachedRead(file),
-					);
-					break;
-				}
-
-				case "currentLine": {
-					const line = editorState.cursor?.line;
-					if (!line) {
-						input.set(context, "No line");
-						break;
-					}
-
-					input.set(context, editorState.activeEditor?.getLine(line));
-					break;
-				}
-
-				case "currentSelection": {
-					const selection = editorState.activeEditor?.getSelection();
-					if (!selection) {
-						input.set(context, "No selection");
-						break;
-					}
-
-					input.set(context, selection);
-					break;
-				}
-				default:
-					break;
+			if (!(context in editorState)) {
+				continue;
 			}
+
+			input.set(context, editorState[context]);
 		}
 
 		input.set("action", actionResult.action);
@@ -186,7 +148,7 @@ export class AIManager {
 		);
 		input.set("userInput", userInput);
 
-		console.log(input);
+		console.log("input", input);
 
 		this.executeAction(actionResult.action, input, editorState);
 	}
