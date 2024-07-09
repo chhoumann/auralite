@@ -144,7 +144,6 @@ export class CreateNoteAction extends Action<
 	static inputSchema = z.object({
 		noteName: z
 			.string()
-			.endsWith(".md")
 			.describe(
 				"The name of the note to create. Must be a valid markdown filename.",
 			),
@@ -199,8 +198,12 @@ export class CreateNoteAction extends Action<
 
 		console.log("Creating note:", input);
 
+		const noteName = input.noteName.endsWith(".md")
+			? input.noteName
+			: `${input.noteName}.md`;
+
 		const note = await context.app.vault.create(
-			`dev/${input.noteName}`,
+			`dev/${noteName}`,
 			input.content || "",
 		);
 
