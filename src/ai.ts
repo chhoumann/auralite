@@ -1,11 +1,11 @@
+import type { EditorState } from "@/actions/Action";
+import type OVSPlugin from "@/main";
+import { removeWhitespace } from "@/utils";
 import type Instructor from "@instructor-ai/instructor";
 import type OpenAI from "openai";
 import type { Stream } from "openai/streaming";
 import { z } from "zod";
 import type { ContextBuilder } from "./ContextBuilder";
-import type { EditorState } from "./actions/Action";
-import { removeWhitespace } from "./actions/removeWhitespace";
-import type OVSPlugin from "./main";
 
 export class AIManager {
 	abortController: AbortController | null = null;

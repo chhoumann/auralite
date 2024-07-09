@@ -1,7 +1,7 @@
+import type { ActionContext, EditorState } from "@/actions/Action";
+import type { AIManager } from "@/ai";
+import type OVSPlugin from "@/main";
 import { MarkdownView, TFile } from "obsidian";
-import type { ActionContext, EditorState } from "./actions/Action";
-import type { AIManager } from "./ai";
-import type OVSPlugin from "./main";
 
 async function getActiveFileFormatted(plugin: OVSPlugin) {
 	const file = plugin.app.workspace.getActiveFile();

@@ -1,6 +1,8 @@
 import type { AIManager } from "@/ai";
 import type OVSPlugin from "@/main";
 import { openFile } from "@/obsidianUtils";
+import { removeWhitespace } from "@/utils";
+import { createStreamingInserter } from "@/utils";
 import type Instructor from "@instructor-ai/instructor";
 import {
 	type App,
@@ -12,7 +14,6 @@ import {
 import type OpenAI from "openai";
 import type { Stream } from "openai/streaming";
 import { z } from "zod";
-import { removeWhitespace } from "./removeWhitespace";
 
 export type EditorState = {
 	activeView: View;
@@ -349,7 +350,10 @@ export class TranscribeAction extends Action<
 			return;
 		}
 
-		const lastCursor = this.cursor;
+		const insertStreamedContent = createStreamingInserter(
+			this.activeEditor,
+			this.cursor,
+		);
 
 		const { processor, fullContent } = await this.getStreamProcessor(
 			stream,
@@ -363,21 +367,7 @@ export class TranscribeAction extends Action<
 					throw new Error("Action cancelled");
 				}
 
-				const lines = chunk.split("\n");
-				if (lines.length > 1) {
-					const uniqueLines = lines.filter(
-						(line, index, array) => line !== array[index - 1],
-					);
-
-					for (const line of uniqueLines) {
-						this.activeEditor.replaceRange(`${line}\n`, lastCursor);
-						lastCursor.line++;
-						lastCursor.ch = 0;
-					}
-				} else {
-					this.activeEditor.replaceRange(chunk, lastCursor);
-					lastCursor.ch += chunk.length;
-				}
+				insertStreamedContent(chunk);
 			}
 
 			context.results.set(this.id, { content: fullContent.value });
@@ -445,7 +435,10 @@ export class WriteAction extends Action<typeof WriteAction.inputSchema> {
 			throw new Error("No active editor or cursor position");
 		}
 
-		const lastCursor = this.cursor;
+		const insertStreamedContent = createStreamingInserter(
+			this.activeEditor,
+			this.cursor,
+		);
 
 		const { processor, fullContent } = await this.getStreamProcessor(
 			stream,
@@ -459,21 +452,7 @@ export class WriteAction extends Action<typeof WriteAction.inputSchema> {
 					throw new Error("Action cancelled");
 				}
 
-				const lines = chunk.split("\n");
-				if (lines.length > 1) {
-					const uniqueLines = lines.filter(
-						(line, index, array) => line !== array[index - 1],
-					);
-
-					for (const line of uniqueLines) {
-						this.activeEditor.replaceRange(`${line}\n`, lastCursor);
-						lastCursor.line++;
-						lastCursor.ch = 0;
-					}
-				} else {
-					this.activeEditor.replaceRange(chunk, lastCursor);
-					lastCursor.ch += chunk.length;
-				}
+				insertStreamedContent(chunk);
 			}
 
 			context.results.set(this.id, { content: fullContent.value });
