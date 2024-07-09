@@ -88,7 +88,38 @@ export abstract class Action<TInput extends z.AnyZodObject> {
 		context: ActionContext,
 	): Promise<void>;
 
-	protected performActionStream(
+	protected async getStreamProcessor(
+		stream: Stream<z.infer<TInput>>,
+		context: ActionContext,
+		chunkKey: keyof z.infer<TInput>,
+	): Promise<{
+		processor: AsyncGenerator<string, void, unknown>;
+		fullContent: { value: string };
+	}> {
+		const fullContent = { value: "" };
+
+		return {
+			processor: (async function* streamProcessor(
+				stream: Stream<z.infer<TInput>>,
+				context: ActionContext,
+				chunkKey: keyof z.infer<TInput>,
+			) {
+				for await (const chunk of stream) {
+					if (context.abortSignal.aborted) {
+						throw new Error("Action cancelled");
+					}
+					if (chunk[chunkKey]) {
+						const newContent = chunk[chunkKey].slice(fullContent.value.length);
+						fullContent.value = chunk[chunkKey];
+						yield newContent;
+					}
+				}
+			})(stream, context, chunkKey),
+			fullContent,
+		};
+	}
+
+	protected async performActionStream(
 		stream: Stream<z.infer<TInput>>,
 		context: ActionContext,
 	): Promise<void> {
@@ -318,31 +349,43 @@ export class TranscribeAction extends Action<
 			return;
 		}
 
-		let fullTranscription = "";
-		let lastInsertedLength = 0;
+		const lastCursor = this.cursor;
 
-		for await (const chunk of stream) {
-			if (context.abortSignal.aborted) {
-				throw new Error("Action cancelled");
-			}
+		const { processor, fullContent } = await this.getStreamProcessor(
+			stream,
+			context,
+			"transcription",
+		);
 
-			if (chunk.transcription) {
-				// Append the new chunk to the full transcription
-				fullTranscription = chunk.transcription;
+		try {
+			for await (const chunk of processor) {
+				if (context.abortSignal.aborted) {
+					throw new Error("Action cancelled");
+				}
 
-				// Calculate the new content to insert
-				const newContent = fullTranscription.slice(lastInsertedLength);
-
-				if (newContent) {
-					// Insert only the new content
-					this.activeEditor.replaceRange(newContent, this.cursor);
-					this.cursor.ch += newContent.length;
-					lastInsertedLength += newContent.length;
+				const lines = chunk.split("\n");
+				if (lines.length > 1) {
+					for (const line of lines) {
+						this.activeEditor.replaceRange(`${line}\n`, lastCursor);
+						lastCursor.line++;
+						lastCursor.ch = 0;
+					}
+				} else {
+					this.activeEditor.replaceRange(chunk, lastCursor);
+					lastCursor.ch += chunk.length;
 				}
 			}
-		}
 
-		context.results.set(this.id, { transcription: fullTranscription });
+			context.results.set(this.id, { content: fullContent.value });
+			console.log(context.results);
+		} catch (error: unknown) {
+			if (error instanceof Error && error.name === "AbortError") {
+				console.log("Transcribe action was cancelled");
+				throw new Error("Transcribe action cancelled");
+			}
+			console.error("Error performing transcribe action:", error);
+			throw new Error("Failed to perform transcribe action");
+		}
 	}
 }
 
@@ -399,30 +442,21 @@ export class WriteAction extends Action<typeof WriteAction.inputSchema> {
 			throw new Error("No active editor or cursor position");
 		}
 
-		let fullContent = "";
 		const lastCursor = this.cursor;
-		let lastInsertedLength = 0;
+
+		const { processor, fullContent } = await this.getStreamProcessor(
+			stream,
+			context,
+			"content",
+		);
 
 		try {
-			for await (const chunk of stream) {
+			for await (const chunk of processor) {
 				if (context.abortSignal.aborted) {
 					throw new Error("Action cancelled");
 				}
 
-				if (!chunk.content) {
-					continue;
-				}
-
-				fullContent = chunk.content;
-				const newContent = fullContent.slice(lastInsertedLength);
-
-				if (!newContent) {
-					continue;
-				}
-
-				lastInsertedLength += newContent.length;
-
-				const lines = newContent.split("\n");
+				const lines = chunk.split("\n");
 				if (lines.length > 1) {
 					for (const line of lines) {
 						this.activeEditor.replaceRange(`${line}\n`, lastCursor);
@@ -430,12 +464,12 @@ export class WriteAction extends Action<typeof WriteAction.inputSchema> {
 						lastCursor.ch = 0;
 					}
 				} else {
-					this.activeEditor.replaceRange(newContent, lastCursor);
-					lastCursor.ch += newContent.length;
+					this.activeEditor.replaceRange(chunk, lastCursor);
+					lastCursor.ch += chunk.length;
 				}
 			}
 
-			context.results.set(this.id, { content: fullContent });
+			context.results.set(this.id, { content: fullContent.value });
 			console.log(context.results);
 		} catch (error: unknown) {
 			if (error instanceof Error && error.name === "AbortError") {
