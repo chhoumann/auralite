@@ -69,10 +69,7 @@ export class CreateNoteAction extends Action<
 			? input.noteName
 			: `${input.noteName}.md`;
 
-		const note = await context.app.vault.create(
-			`dev/${noteName}`,
-			input.content || "",
-		);
+		const note = await context.app.vault.create(noteName, input.content || "");
 
 		openFile(context.app, note, {
 			paneType: input.paneType,
