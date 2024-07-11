@@ -8,8 +8,19 @@ import type { ChatCompletionMessageParam } from "openai/resources";
 import type { Stream } from "openai/streaming";
 import { z } from "zod";
 import type { ContextBuilder } from "./ContextBuilder";
+import { TypedEvents } from "./types/TypedEvents";
 
-export class AIManager {
+interface AIManagerEvents {
+	processingStarted: () => void;
+	transcriptionComplete: (transcription: string) => void;
+	actionPlanned: (action: string, contexts: string[]) => void;
+	actionExecutionStarted: (action: string) => void;
+	actionExecutionComplete: (action: string) => void;
+	processingComplete: () => void;
+	error: (error: Error) => void;
+}
+
+export class AIManager extends TypedEvents<AIManagerEvents> {
 	abortController: AbortController | null = null;
 
 	constructor(
@@ -18,7 +29,9 @@ export class AIManager {
 		private oai: OpenAI,
 		private instructorClient: ReturnType<typeof Instructor>,
 		private contextBuilder: ContextBuilder,
-	) {}
+	) {
+		super();
+	}
 
 	getOpenAI(): OpenAI {
 		return this.oai;
@@ -42,6 +55,8 @@ export class AIManager {
 				},
 				{ signal: this.abortController.signal },
 			);
+
+			this.trigger("transcriptionComplete", response.text);
 
 			return response.text;
 		} catch (error: unknown) {
@@ -75,80 +90,99 @@ export class AIManager {
 	}
 
 	async run(userInput: string, editorState: Partial<EditorState>) {
-		const actionsList = this.actionIds.map(
-			(actionId) =>
-				` - ${actionId}: ${this.plugin.actionManager?.getAction(actionId)?.description}`,
-		);
-		const actionsPrompt = removeWhitespace(
-			`The action to take. Here are the available actions:\n${actionsList.join("\n")}`,
-		);
+		this.trigger("processingStarted");
 
-		const possibleContexts = {
-			currentFile: "The current file, including name and contents",
-			currentLine: "The current line",
-			currentSelection: "The current selection",
-		} as const;
+		try {
+			const actionsList = this.actionIds.map(
+				(actionId) =>
+					` - ${actionId}: ${this.plugin.actionManager?.getAction(actionId)?.description}`,
+			);
+			const actionsPrompt = removeWhitespace(
+				`The action to take. Here are the available actions:\n${actionsList.join("\n")}`,
+			);
 
-		type PossibleContexts = keyof typeof possibleContexts;
+			const possibleContexts = {
+				currentFile: "The current file, including name and contents",
+				currentLine: "The current line",
+				currentSelection: "The current selection",
+			} as const;
 
-		const actionSchema = z.object({
-			action: z
-				.enum(this.actionIds as [string, ...string[]])
-				.describe(actionsPrompt),
-			necessaryContexts: z
-				.array(
-					z.enum(
-						Object.keys(possibleContexts) as [
-							PossibleContexts,
-							...PossibleContexts[],
-						],
-					),
-				)
-				.optional()
-				.describe(
-					`The necessary context to execute the action.\nOnly include the context that is necessary to execute the action.\nHere are the available contexts:\n${Object.entries(
-						possibleContexts,
+			type PossibleContexts = keyof typeof possibleContexts;
+
+			const actionSchema = z.object({
+				action: z
+					.enum(this.actionIds as [string, ...string[]])
+					.describe(actionsPrompt),
+				necessaryContexts: z
+					.array(
+						z.enum(
+							Object.keys(possibleContexts) as [
+								PossibleContexts,
+								...PossibleContexts[],
+							],
+						),
 					)
-						.map(([key, value]) => `- ${key}: ${value}`)
-						.join("\n")}`,
-				),
-		});
+					.optional()
+					.describe(
+						`The necessary context to execute the action.\nOnly include the context that is necessary to execute the action.\nHere are the available contexts:\n${Object.entries(
+							possibleContexts,
+						)
+							.map(([key, value]) => `- ${key}: ${value}`)
+							.join("\n")}`,
+					),
+			});
 
-		const actionResult = await this.createInstructorChatCompletion(
-			actionSchema,
-			[
-				{
-					role: "system",
-					content: "You are an assistant that can execute actions",
-				},
-				{
-					role: "user",
-					content: userInput,
-				},
-			],
-		);
+			const actionResult = await this.createInstructorChatCompletion(
+				actionSchema,
+				[
+					{
+						role: "system",
+						content: "You are an assistant that can execute actions",
+					},
+					{
+						role: "user",
+						content: userInput,
+					},
+				],
+			);
 
-		const input = new Map();
+			this.trigger(
+				"actionPlanned",
+				actionResult.action,
+				actionResult.necessaryContexts ?? [],
+			);
 
-		const necessaryContexts = actionResult.necessaryContexts ?? [];
-		const validContexts = necessaryContexts.filter(
-			(context) => context in editorState,
-		);
+			const input = new Map();
 
-		for (const context of validContexts) {
-			input.set(context, editorState[context]);
+			const necessaryContexts = actionResult.necessaryContexts ?? [];
+			const validContexts = necessaryContexts.filter(
+				(context) => context in editorState,
+			);
+
+			for (const context of validContexts) {
+				input.set(context, editorState[context]);
+			}
+
+			input.set("action", actionResult.action);
+			input.set(
+				"actionDescription",
+				this.plugin.actionManager.getAction(actionResult.action)?.description,
+			);
+			input.set("userInput", userInput);
+
+			console.log("input", input);
+
+			this.trigger("actionExecutionStarted", actionResult.action);
+			await this.executeAction(actionResult.action, input, editorState);
+			this.trigger("actionExecutionComplete", actionResult.action);
+
+			this.trigger("processingComplete");
+		} catch (error) {
+			this.trigger(
+				"error",
+				error instanceof Error ? error : new Error(String(error)),
+			);
 		}
-
-		input.set("action", actionResult.action);
-		input.set(
-			"actionDescription",
-			this.plugin.actionManager.getAction(actionResult.action)?.description,
-		);
-		input.set("userInput", userInput);
-
-		console.log("input", input);
-
-		this.executeAction(actionResult.action, input, editorState);
 	}
 
 	async createInstructorChatCompletion<TSchema extends z.AnyZodObject>(

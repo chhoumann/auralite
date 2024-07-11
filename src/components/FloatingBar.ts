@@ -41,10 +41,29 @@ export class FloatingBar {
 		}
 	}
 
+	private statusQueue: string[] = [];
+	private isProcessingQueue = false;
+
 	public setStatus(message: string) {
-		this._waveformContainer.style.display = "none";
-		this.statusContainer.style.display = "block";
-		this.statusContainer.setText(message);
+		this.statusQueue.push(message);
+		this.processStatusQueue();
+	}
+
+	private async processStatusQueue() {
+		if (this.isProcessingQueue) return;
+		this.isProcessingQueue = true;
+
+		while (this.statusQueue.length > 0) {
+			const status = this.statusQueue.shift();
+			if (status) {
+				this._waveformContainer.style.display = "none";
+				this.statusContainer.style.display = "block";
+				this.statusContainer.innerHTML = status.replace(/\n/g, '<br>');
+				await new Promise(resolve => setTimeout(resolve, 500));
+			}
+		}
+
+		this.isProcessingQueue = false;
 	}
 
 	public resetForNewRecording() {

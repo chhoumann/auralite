@@ -39,9 +39,16 @@
 }
 
 .ovs-status-container {
-    font-size: 15px;
+    width: 100%;
+    height: auto;
+    min-height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 14px;
     color: var(--text-normal);
-    font-weight: 500;
     text-align: center;
-    padding: 4px 0;
+    padding: 8px 0;
+    line-height: 1.4;
+    transition: all 0.3s ease-in-out;
 }

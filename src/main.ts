@@ -49,8 +49,41 @@ export default class OVSPlugin extends Plugin {
 		const openAIClient = this.createOpenAIClient();
 		this.contextBuilder = new ContextBuilder(this);
 		this.aiManager = this.createAIManager(openAIClient);
+		this.setupAIManagerEventListeners();
 
 		this.floatingBar = new FloatingBar(this.app.workspace.containerEl);
+	}
+
+	private setupAIManagerEventListeners() {
+		this.aiManager.on("processingStarted", () => {
+			this.floatingBar?.setStatus("Assistant is thinking...");
+		});
+
+		this.aiManager.on("transcriptionComplete", (transcription) => {
+			this.floatingBar?.setStatus(`Transcription: "${transcription.substring(0, 30)}..."`);
+		});
+
+		this.aiManager.on("actionPlanned", (action, contexts) => {
+			this.floatingBar?.setStatus(`Planning action: ${action}\nContexts: ${contexts.join(", ")}`);
+		});
+
+		this.aiManager.on("actionExecutionStarted", (action) => {
+			this.floatingBar?.setStatus(`Executing action: ${action}`);
+		});
+
+		this.aiManager.on("actionExecutionComplete", (action) => {
+			this.floatingBar?.setStatus(`Completed action: ${action}`);
+		});
+
+		this.aiManager.on("processingComplete", () => {
+			this.floatingBar?.setStatus("Processing complete");
+			setTimeout(() => this.floatingBar?.hide(), 2000);
+		});
+
+		this.aiManager.on("error", (error) => {
+			this.floatingBar?.setStatus(`Error: ${error.message}`);
+			setTimeout(() => this.floatingBar?.hide(), 5000);
+		});
 	}
 
 	private registerActions() {
