@@ -10,6 +10,7 @@ import {
 } from "./OVSSettingTab";
 import { ActionManager } from "./actions/ActionManager";
 import { CreateNoteAction } from "./actions/CreateNoteAction";
+import { EditAction } from "./actions/EditAction";
 import { NoopAction } from "./actions/NoopAction";
 import { TranscribeAction } from "./actions/TranscribeAction";
 import { WriteAction } from "./actions/WriteAction";
@@ -52,6 +53,7 @@ export default class OVSPlugin extends Plugin {
 		this.actionManager.registerAction(new NoopAction());
 		this.actionManager.registerAction(new TranscribeAction());
 		this.actionManager.registerAction(new WriteAction());
+		this.actionManager.registerAction(new EditAction());
 	}
 
 	private createOpenAIClient() {

@@ -37,6 +37,20 @@ export interface ActionContext {
 	};
 }
 
+export function renderTemplate(
+	template: string,
+	variables: Map<string, unknown>,
+): string {
+	return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+		if (variables.has(key)) {
+			const value = variables.get(key);
+			return value != null ? String(value) : "";
+		}
+
+		throw new Error(`Variable ${key} not found in template`);
+	});
+}
+
 export abstract class Action<TInput extends z.AnyZodObject> {
 	abstract readonly description: string;
 
@@ -55,8 +69,10 @@ export abstract class Action<TInput extends z.AnyZodObject> {
 			throw new Error("Action cancelled");
 		}
 
+		const prompt = renderTemplate(this.systemPrompt, context.results);
+
 		const msgs: Array<ChatCompletionMessageParam> = [
-			{ role: "system", content: this.systemPrompt },
+			{ role: "system", content: prompt },
 			{
 				role: "system",
 				content: `## Context:\n${JSON.stringify(Object.fromEntries(context.results))}`,
