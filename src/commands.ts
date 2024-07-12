@@ -35,6 +35,13 @@ export function registerCommands(plugin: OVSPlugin): void {
 				plugin.cancelOngoingOperation();
 			},
 		},
+		{
+			id: "ovs-transcribe",
+			name: "Transcribe",
+			callback: () => {
+				plugin.toggleTranscribe();
+			},
+		},
 	];
 
 	for (const cmd of commands) {
