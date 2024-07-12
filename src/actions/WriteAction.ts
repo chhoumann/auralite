@@ -6,6 +6,7 @@ import type { ChatCompletion, ChatCompletionChunk } from "openai/resources";
 import type { Stream } from "openai/streaming";
 import { z } from "zod";
 import { Action, type ActionContext } from "./Action";
+import { logger } from "@/logging";
 
 export class WriteAction extends Action<typeof WriteAction.inputSchema> {
 	readonly description = "Write content where the user has their cursor.";
@@ -99,13 +100,13 @@ export class WriteAction extends Action<typeof WriteAction.inputSchema> {
 			flush();
 
 			context.results.set(this.id, { content: fullContent.value });
-			console.log(context.results);
+			logger.debug("Write action results", { results: context.results });
 		} catch (error: unknown) {
 			if (error instanceof Error && error.name === "AbortError") {
-				console.log("Write action was cancelled");
+				logger.error("Write action was cancelled", { error });
 				throw new Error("Write action cancelled");
 			}
-			console.error("Error performing write action:", error);
+			logger.error("Error performing write action", { error });
 			throw new Error("Failed to perform write action");
 		}
 	}

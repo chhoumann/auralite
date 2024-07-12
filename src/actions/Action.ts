@@ -1,4 +1,5 @@
 import type { AIManager } from "@/ai";
+import { logger } from "@/logging";
 import type OVSPlugin from "@/main";
 import type Instructor from "@instructor-ai/instructor";
 import type { App, Editor, EditorPosition, View } from "obsidian";
@@ -62,7 +63,7 @@ export abstract class Action<TInput extends z.AnyZodObject> {
 			},
 		];
 
-		console.log("messages:", msgs);
+		logger.debug("messages:", { msgs });
 
 		if (this.useInstructor) {
 			if (this.supportsStreaming) {

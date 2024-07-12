@@ -17,6 +17,7 @@ import { AIManager } from "./ai";
 import { registerCommands } from "./commands";
 import { AssistantTask } from "./tasks/AssistantTask";
 import { TranscribeTask } from "./tasks/TranscribeTask";
+import { logger } from "./logging";
 
 declare const __IS_DEV__: boolean;
 
@@ -103,7 +104,7 @@ export default class OVSPlugin extends Plugin {
 				this.audioRecorder.teardown();
 			}
 		} catch (error) {
-			console.error("Error during plugin unload:", error);
+			logger.error("Error during plugin unload", { error });
 		}
 	}
 
@@ -120,7 +121,7 @@ export default class OVSPlugin extends Plugin {
 		try {
 			await this.saveTranscription(filePath, transcription);
 		} catch (error) {
-			console.error("Error saving transcription:", error);
+			logger.error("Error saving transcription", { error });
 		}
 	}
 

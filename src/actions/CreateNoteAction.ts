@@ -2,6 +2,7 @@ import { openFile } from "@/obsidianUtils";
 import { removeWhitespace } from "@/utils";
 import { z } from "zod";
 import { Action, type ActionContext } from "./Action";
+import { logger } from "@/logging";
 
 export class CreateNoteAction extends Action<
 	typeof CreateNoteAction.inputSchema
@@ -63,7 +64,7 @@ export class CreateNoteAction extends Action<
 			throw new Error("Action cancelled");
 		}
 
-		console.log("Creating note:", input);
+		logger.debug("Creating note:", { input });
 
 		const noteName = input.noteName.endsWith(".md")
 			? input.noteName

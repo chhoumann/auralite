@@ -3,6 +3,7 @@ import { Task } from "./Task";
 import { FloatingBar } from "@/components/FloatingBar";
 import { WaveformVisualizer } from "@/components/WaveformVisualizer";
 import { delay } from "@/utils";
+import { logger } from "@/logging";
 
 declare const __IS_DEV__: boolean;
 
@@ -116,7 +117,7 @@ export class AssistantTask extends Task {
 		this.waveformVisualizer?.stop();
 
 		if (!this.audioData) {
-			console.error("audioData is undefined");
+			logger.error("audioData is undefined");
 			this.floatingBar?.setStatus("Failed to get recording data");
 			return;
 		}
@@ -137,7 +138,7 @@ export class AssistantTask extends Task {
 
 			await this.aiManager.run(transcription, this.editorState);
 		} catch (error) {
-			console.error(error);
+			logger.error("Failed to transcribe", { error });
 			this.floatingBar?.setStatus("Failed to transcribe");
 		} finally {
 			await delay(3000);

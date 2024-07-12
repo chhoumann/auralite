@@ -5,6 +5,7 @@ import type { ChatCompletion, ChatCompletionChunk } from "openai/resources";
 import type { Stream } from "openai/streaming";
 import { z } from "zod";
 import { Action, type ActionContext } from "./Action";
+import { logger } from "@/logging";
 
 export class TranscribeAction extends Action<
 	typeof TranscribeAction.inputSchema
@@ -98,13 +99,13 @@ export class TranscribeAction extends Action<
 			flush();
 
 			context.results.set(this.id, { content: fullContent.value });
-			console.log(context.results);
+			logger.debug("Transcribe action results", { results: context.results });
 		} catch (error: unknown) {
 			if (error instanceof Error && error.name === "AbortError") {
-				console.log("Transcribe action was cancelled");
+				logger.error("Transcribe action was cancelled", { error });
 				throw new Error("Transcribe action cancelled");
 			}
-			console.error("Error performing transcribe action:", error);
+			logger.error("Error performing transcribe action", { error });
 			throw new Error("Failed to perform transcribe action");
 		}
 	}

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Action, type ActionContext } from "./Action";
+import { logger } from "@/logging";
 
 export class NoopAction extends Action<typeof NoopAction.inputSchema> {
 	readonly description =
@@ -20,6 +21,6 @@ export class NoopAction extends Action<typeof NoopAction.inputSchema> {
 		_context: ActionContext,
 	): Promise<void> {
 		// This action intentionally does nothing
-		console.log("Noop action executed");
+		logger.debug("Noop action executed");
 	}
 }

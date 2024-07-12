@@ -3,6 +3,7 @@ import { Task } from "./Task";
 import { FloatingBar } from "@/components/FloatingBar";
 import { WaveformVisualizer } from "@/components/WaveformVisualizer";
 import { delay } from "@/utils";
+import { logger } from "@/logging";
 
 export class TranscribeTask extends Task {
 	private editorState: Partial<EditorState> | undefined;
@@ -106,7 +107,7 @@ export class TranscribeTask extends Task {
 				this.floatingBar?.setStatus("No cursor or active editor found");
 			}
 		} catch (error) {
-			console.error("Error handling completed recording:", error);
+			logger.error("Error handling completed recording:", { error });
 			this.status = "error";
 			this.floatingBar?.setStatus("Error transcribing");
 		} finally {

@@ -1,3 +1,4 @@
+import { logger } from "./logging";
 import { TypedEvents } from "./types/TypedEvents";
 
 interface AudioRecorderEvents {
@@ -107,7 +108,7 @@ export class AudioRecorder extends TypedEvents<AudioRecorderEvents> {
 			this.mediaRecorder.start();
 			this.trigger("recordingStarted");
 		} catch (error) {
-			console.error("Error starting recording:", error);
+			logger.error("Error starting recording", { error });
 			this.trigger("error", error);
 			throw error;
 		}

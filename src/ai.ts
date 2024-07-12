@@ -9,6 +9,7 @@ import type { Stream } from "openai/streaming";
 import { z } from "zod";
 import type { ContextBuilder } from "./ContextBuilder";
 import { TypedEvents } from "./types/TypedEvents";
+import { logger } from "./logging";
 
 interface AIManagerEvents {
 	processingStarted: () => void;
@@ -61,10 +62,10 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 			return response.text;
 		} catch (error: unknown) {
 			if (error instanceof Error && error.name === "AbortError") {
-				console.log("Audio transcription was cancelled");
+				logger.error("Audio transcription was cancelled", { error });
 				throw new Error("Audio transcription cancelled");
 			}
-			console.error("Error transcribing audio:", error);
+			logger.error("Error transcribing audio", { error });
 			throw new Error("Failed to transcribe audio");
 		}
 	}
@@ -82,7 +83,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 			await this.plugin.actionManager.executeAction(action, context);
 		} catch (error: unknown) {
 			if (error instanceof Error && error.name === "AbortError") {
-				console.log("Action was cancelled");
+				logger.error("Action was cancelled", { error });
 			} else {
 				throw error;
 			}
@@ -170,7 +171,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 			);
 			input.set("userInput", userInput);
 
-			console.log("input", input);
+			logger.debug("input", { input });
 
 			this.trigger("actionExecutionStarted", actionResult.action);
 			await this.executeAction(actionResult.action, input, editorState);
@@ -206,10 +207,10 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 			return response;
 		} catch (error: unknown) {
 			if (error instanceof Error && error.name === "AbortError") {
-				console.log("Chat completion was cancelled");
+				logger.error("Chat completion was cancelled", { error });
 				throw new Error("Chat completion cancelled");
 			}
-			console.error("Error creating chat completion:", error);
+			logger.error("Error creating chat completion", { error });
 			throw new Error("Failed to create chat completion");
 		}
 	}
@@ -237,10 +238,10 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 			return stream;
 		} catch (error: unknown) {
 			if (error instanceof Error && error.name === "AbortError") {
-				console.log("Chat completion stream was cancelled");
+				logger.error("Chat completion stream was cancelled", { error });
 				throw new Error("Chat completion stream cancelled");
 			}
-			console.error("Error creating chat completion stream:", error);
+			logger.error("Error creating chat completion stream", { error });
 			throw new Error("Failed to create chat completion stream");
 		}
 	}
@@ -261,10 +262,10 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 			);
 		} catch (error) {
 			if (error instanceof Error && error.name === "AbortError") {
-				console.log("Chat completion was cancelled");
+				logger.error("Chat completion was cancelled", { error });
 				throw new Error("Chat completion cancelled");
 			}
-			console.error("Error creating chat completion:", error);
+			logger.error("Error creating chat completion", { error });
 			throw new Error("Failed to create chat completion");
 		}
 	}
@@ -286,10 +287,10 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 			);
 		} catch (error) {
 			if (error instanceof Error && error.name === "AbortError") {
-				console.log("Chat completion stream was cancelled");
+				logger.error("Chat completion stream was cancelled", { error });
 				throw new Error("Chat completion stream cancelled");
 			}
-			console.error("Error creating chat completion stream:", error);
+			logger.error("Error creating chat completion stream", { error });
 			throw new Error("Failed to create chat completion stream");
 		}
 	}
