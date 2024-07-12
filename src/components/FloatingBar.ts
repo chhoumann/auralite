@@ -58,8 +58,8 @@ export class FloatingBar {
 			if (status) {
 				this._waveformContainer.style.display = "none";
 				this.statusContainer.style.display = "block";
-				this.statusContainer.innerHTML = status.replace(/\n/g, '<br>');
-				await new Promise(resolve => setTimeout(resolve, 500));
+				this.statusContainer.innerHTML = status.replace(/\n/g, "<br>");
+				await new Promise((resolve) => setTimeout(resolve, 500));
 			}
 		}
 

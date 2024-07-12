@@ -1,6 +1,15 @@
 import { type EventRef, Events } from "obsidian";
 
 export class TypedEvents<T> extends Events {
+	/**
+	 * @private
+	 * @deprecated This property is for internal typing purposes only.
+	 * Do not access or use this property under any circumstances.
+	 * It is not part of the public API and may be removed without notice.
+	 * @internal
+	 */
+	readonly __events!: T;
+
 	// @ts-ignore
 	override on<K extends keyof T>(
 		event: K,

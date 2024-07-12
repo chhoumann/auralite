@@ -1,5 +1,5 @@
 import Instructor from "@instructor-ai/instructor";
-import { Notice, Plugin, TFile } from "obsidian";
+import { Plugin, TFile } from "obsidian";
 import OpenAI from "openai";
 import { AudioRecorder } from "./AudioRecorder";
 import { ContextBuilder } from "./ContextBuilder";
@@ -15,8 +15,8 @@ import { TranscribeAction } from "./actions/TranscribeAction";
 import { WriteAction } from "./actions/WriteAction";
 import { AIManager } from "./ai";
 import { registerCommands } from "./commands";
-import { FloatingBar } from "./components/FloatingBar";
-import { WaveformVisualizer } from "./components/WaveformVisualizer";
+import { AssistantTask } from "./tasks/AssistantTask";
+import { TranscribeTask } from "./tasks/TranscribeTask";
 
 declare const __IS_DEV__: boolean;
 
@@ -26,18 +26,13 @@ export default class OVSPlugin extends Plugin {
 	contextBuilder!: ContextBuilder;
 	private audioRecorder: AudioRecorder = new AudioRecorder();
 	private aiManager!: AIManager;
-	private _isRecording = false;
-	private waveformVisualizer: WaveformVisualizer | null = null;
-	private floatingBar: FloatingBar | null = null;
 
-	public get isRecording(): boolean {
-		return this._isRecording;
-	}
+	private currentTask?: TranscribeTask | AssistantTask;
 
 	override async onload() {
 		await this.loadSettings();
 		this.initializeComponents();
-		this.setupEventListeners();
+		this.setupPushToTalkEvents();
 		registerCommands(this);
 		this.addSettingTab(new OVSSettingTab(this.app, this));
 	}
@@ -49,41 +44,6 @@ export default class OVSPlugin extends Plugin {
 		const openAIClient = this.createOpenAIClient();
 		this.contextBuilder = new ContextBuilder(this);
 		this.aiManager = this.createAIManager(openAIClient);
-		this.setupAIManagerEventListeners();
-
-		this.floatingBar = new FloatingBar(this.app.workspace.containerEl);
-	}
-
-	private setupAIManagerEventListeners() {
-		this.aiManager.on("processingStarted", () => {
-			this.floatingBar?.setStatus("Assistant is thinking...");
-		});
-
-		this.aiManager.on("transcriptionComplete", (transcription) => {
-			this.floatingBar?.setStatus(`Transcription: "${transcription.substring(0, 30)}..."`);
-		});
-
-		this.aiManager.on("actionPlanned", (action, contexts) => {
-			this.floatingBar?.setStatus(`Planning action: ${action}\nContexts: ${contexts.join(", ")}`);
-		});
-
-		this.aiManager.on("actionExecutionStarted", (action) => {
-			this.floatingBar?.setStatus(`Executing action: ${action}`);
-		});
-
-		this.aiManager.on("actionExecutionComplete", (action) => {
-			this.floatingBar?.setStatus(`Completed action: ${action}`);
-		});
-
-		this.aiManager.on("processingComplete", () => {
-			this.floatingBar?.setStatus("Processing complete");
-			setTimeout(() => this.floatingBar?.hide(), 2000);
-		});
-
-		this.aiManager.on("error", (error) => {
-			this.floatingBar?.setStatus(`Error: ${error.message}`);
-			setTimeout(() => this.floatingBar?.hide(), 5000);
-		});
 	}
 
 	private registerActions() {
@@ -110,84 +70,37 @@ export default class OVSPlugin extends Plugin {
 		);
 	}
 
-	private setupEventListeners() {
-		this.setupPushToTalkEvents();
-		this.setupAudioRecorderEvents();
-	}
-
 	private setupPushToTalkEvents() {
 		const ribbonIcon = this.addRibbonIcon("mic", "Push to talk", () => {});
-		this.registerDomEvent(
-			ribbonIcon,
-			"mousedown",
-			this.startRecording.bind(this),
-		);
-		this.registerDomEvent(ribbonIcon, "mouseup", this.stopRecording.bind(this));
-		this.registerDomEvent(
-			ribbonIcon,
-			"mouseleave",
-			this.stopRecording.bind(this),
-		);
-	}
-
-	private setupAudioRecorderEvents() {
-		this.registerEvent(
-			this.audioRecorder.on(
-				"recordingStarted",
-				this.onRecordingStarted.bind(this),
-			),
-		);
-
-		this.registerEvent(
-			this.audioRecorder.on(
-				"recordingComplete",
-				this.onRecordingComplete.bind(this),
-			),
-		);
-
-		this.registerEvent(
-			this.audioRecorder.on("error", this.onRecordingError.bind(this)),
-		);
-	}
-
-	async startRecording() {
-		if (this.isRecording) return;
-
-		try {
-			await this.audioRecorder.start();
-			this._isRecording = true;
-		} catch (error) {
-			console.error("Error starting recording:", error);
-			this._isRecording = false;
-		}
-	}
-
-	async stopRecording() {
-		if (!this.isRecording) return;
-
-		try {
-			await this.audioRecorder.stop();
-			this._isRecording = false;
-		} catch (error) {
-			console.error("Error stopping recording:", error);
-		}
+		this.registerDomEvent(ribbonIcon, "mousedown", () => {
+			this.setupCurrentTask(
+				new AssistantTask(
+					this,
+					this.audioRecorder,
+					this.contextBuilder,
+					this.aiManager,
+				),
+			);
+		});
+		this.registerDomEvent(ribbonIcon, "mouseup", () => {
+			if (this.currentTask) {
+				this.currentTask.stop();
+			}
+		});
+		this.registerDomEvent(ribbonIcon, "mouseleave", () => {
+			if (this.currentTask) {
+				this.currentTask.stop();
+			}
+		});
 	}
 
 	override onunload() {
 		try {
+			this.cancelOngoingOperation();
+
 			if (this.audioRecorder) {
 				this.audioRecorder.cancel();
 				this.audioRecorder.teardown();
-			}
-
-			if (this.floatingBar) {
-				this.floatingBar.remove();
-				this.floatingBar = null;
-			}
-
-			if (this.waveformVisualizer) {
-				this.waveformVisualizer.stop();
-				this.waveformVisualizer = null;
 			}
 		} catch (error) {
 			console.error("Error during plugin unload:", error);
@@ -202,36 +115,13 @@ export default class OVSPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	private async processRecording(audioData: {
-		buffer: ArrayBuffer;
-		mimeType: string;
-	}) {
-		try {
-			const editorState = await this.contextBuilder.captureEditorState();
-			const transcription = await this.aiManager.transcribeAudio(audioData);
-
-			if (__IS_DEV__) {
-				await this.saveTranscriptionForDev(transcription);
-			}
-
-			await this.aiManager.run(transcription, editorState);
-		} catch (error) {
-			this.handleProcessingError(error);
-		}
-	}
-
-	private async saveTranscriptionForDev(transcription: string) {
+	async saveTranscriptionForDev(transcription: string) {
 		const filePath = "dev/transcription.md";
 		try {
 			await this.saveTranscription(filePath, transcription);
 		} catch (error) {
 			console.error("Error saving transcription:", error);
 		}
-	}
-
-	private handleProcessingError(error: unknown) {
-		console.error("Error processing recording:", error);
-		new Notice("Error processing recording. Check console for details.");
 	}
 
 	private async saveTranscription(filePath: string, transcription: string) {
@@ -243,57 +133,51 @@ export default class OVSPlugin extends Plugin {
 		}
 	}
 
-	private createWaveform(analyser: AnalyserNode) {
-		this.stopWaveform();
-		if (this.floatingBar) {
-			this.waveformVisualizer = new WaveformVisualizer(
-				this.floatingBar.waveformContainer,
-				analyser,
-			);
-			this.waveformVisualizer.start();
-		}
-	}
-
-	private stopWaveform() {
-		if (this.waveformVisualizer) {
-			this.waveformVisualizer.stop();
-			this.waveformVisualizer = null;
-		}
-	}
-
-	private onRecordingStarted = () => {
-		console.log("Recording started");
-		const analyser = this.audioRecorder.getAnalyser();
-
-		if (this.floatingBar && analyser) {
-			this.floatingBar.show();
-			this.createWaveform(analyser);
-		}
-	};
-
-	private async onRecordingComplete(data: {
-		buffer: ArrayBuffer;
-		mimeType: string;
-	}): Promise<void> {
-		console.log("Recording complete");
-		this.stopWaveform();
-		this.floatingBar?.setStatus("Processing recording...");
-		await this.processRecording(data);
-		this.floatingBar?.hide();
-	}
-
-	private async onRecordingError(error: unknown): Promise<void> {
-		console.error("Recording error:", error);
-		this.floatingBar?.setStatus(
-			`Error during recording: ${error instanceof Error ? error.message : String(error)}`,
-		);
-		setTimeout(() => {
-			this.stopWaveform();
-			this.floatingBar?.hide();
-		}, 5000);
-	}
-
 	cancelOngoingOperation() {
-		this.aiManager.cancelOngoingOperation();
+		this.currentTask?.cancel();
+		this.currentTask = undefined;
+	}
+
+	private setupCurrentTask(task: TranscribeTask | AssistantTask) {
+		this.currentTask?.cancel();
+		this.currentTask = task;
+		this.currentTask.on("taskFinished", () => {
+			this.currentTask = undefined;
+		});
+		this.currentTask.start();
+
+		return this.currentTask;
+	}
+
+	public toggleTranscribe() {
+		if (this.currentTask && this.currentTask instanceof TranscribeTask) {
+			this.currentTask.stop();
+			return;
+		}
+
+		this.setupCurrentTask(
+			new TranscribeTask(
+				this,
+				this.audioRecorder,
+				this.contextBuilder,
+				this.aiManager,
+			),
+		);
+	}
+
+	public toggleAssistant(): void {
+		if (this.currentTask && this.currentTask instanceof AssistantTask) {
+			this.currentTask.stop();
+			return;
+		}
+
+		this.setupCurrentTask(
+			new AssistantTask(
+				this,
+				this.audioRecorder,
+				this.contextBuilder,
+				this.aiManager,
+			),
+		);
 	}
 }

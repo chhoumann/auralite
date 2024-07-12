@@ -1,6 +1,6 @@
 import { removeWhitespace } from "@/utils";
 import { createStreamingInserter } from "@/utils";
-import { getOpenAIStreamProcessor } from "@/utils";
+import { getOpenAIChatStreamProcessor } from "@/utils";
 import { type Editor, type EditorPosition, MarkdownView } from "obsidian";
 import type { ChatCompletion, ChatCompletionChunk } from "openai/resources";
 import type { Stream } from "openai/streaming";
@@ -82,9 +82,9 @@ export class WriteAction extends Action<typeof WriteAction.inputSchema> {
 			},
 		);
 
-		const { processor, fullContent } = await getOpenAIStreamProcessor({
+		const { processor, fullContent } = await getOpenAIChatStreamProcessor({
 			stream,
-			context,
+			abortSignal: context.abortSignal,
 		});
 
 		try {

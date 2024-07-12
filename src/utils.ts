@@ -56,12 +56,12 @@ export function createStreamingInserter(
 export function removeWhitespace(text: string): string {
 	return text.replace(/\s+/g, " ").trim();
 }
-export async function getOpenAIStreamProcessor({
+export async function getOpenAIChatStreamProcessor({
 	stream,
-	context,
+	abortSignal,
 }: {
 	stream: Stream<ChatCompletionChunk>;
-	context: ActionContext;
+	abortSignal: AbortSignal;
 }): Promise<{
 	processor: AsyncGenerator<string, void, unknown>;
 	fullContent: { value: string };
@@ -71,7 +71,7 @@ export async function getOpenAIStreamProcessor({
 	return {
 		processor: (async function* streamProcessor() {
 			for await (const chunk of stream) {
-				if (context.abortSignal.aborted) {
+				if (abortSignal.aborted) {
 					throw new Error("Action cancelled");
 				}
 				const content = chunk.choices[0].delta.content;
@@ -85,6 +85,7 @@ export async function getOpenAIStreamProcessor({
 		fullContent,
 	};
 }
+
 export async function getInstructorStreamProcessor<
 	T extends z.infer<z.AnyZodObject>,
 >({
@@ -116,4 +117,13 @@ export async function getInstructorStreamProcessor<
 		})(),
 		fullContent,
 	};
+}
+
+/**
+ * Delays execution for a specified number of milliseconds.
+ * @param ms The number of milliseconds to delay.
+ * @returns A Promise that resolves after the specified delay.
+ */
+export function delay(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }

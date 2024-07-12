@@ -294,10 +294,8 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 		}
 	}
 
-	cancelOngoingOperation() {
-		if (this.abortController) {
-			this.abortController.abort();
-			this.abortController = null;
-		}
+	cancel() {
+		this.abortController?.abort();
+		this.abortController = null;
 	}
 }

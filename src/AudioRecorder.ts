@@ -55,6 +55,7 @@ export class AudioRecorder extends TypedEvents<AudioRecorderEvents> {
 				this.trigger("recordingComplete", { buffer, mimeType });
 			}
 		});
+		this.trigger("recordingStopped");
 	};
 
 	teardown() {
@@ -120,7 +121,7 @@ export class AudioRecorder extends TypedEvents<AudioRecorderEvents> {
 		}
 
 		this.mediaRecorder.stop();
-		this.trigger("recordingStopped");
+
 		return (
 			this.recordingPromise ??
 			Promise.reject(new Error("Recording promise not initialized"))
