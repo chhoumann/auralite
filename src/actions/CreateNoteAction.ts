@@ -1,8 +1,8 @@
+import { logger } from "@/logging";
 import { openFile } from "@/obsidianUtils";
 import { removeWhitespace } from "@/utils";
 import { z } from "zod";
 import { Action, type ActionContext } from "./Action";
-import { logger } from "@/logging";
 
 export class CreateNoteAction extends Action<
 	typeof CreateNoteAction.inputSchema

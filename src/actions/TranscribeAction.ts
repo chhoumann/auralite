@@ -1,3 +1,4 @@
+import { logger } from "@/logging";
 import { getOpenAIChatStreamProcessor, removeWhitespace } from "@/utils";
 import { createStreamingInserter } from "@/utils";
 import { type Editor, type EditorPosition, MarkdownView } from "obsidian";
@@ -5,7 +6,6 @@ import type { ChatCompletion, ChatCompletionChunk } from "openai/resources";
 import type { Stream } from "openai/streaming";
 import { z } from "zod";
 import { Action, type ActionContext } from "./Action";
-import { logger } from "@/logging";
 
 export class TranscribeAction extends Action<
 	typeof TranscribeAction.inputSchema

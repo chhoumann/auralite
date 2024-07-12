@@ -8,8 +8,8 @@ import type { ChatCompletionMessageParam } from "openai/resources";
 import type { Stream } from "openai/streaming";
 import { z } from "zod";
 import type { ContextBuilder } from "./ContextBuilder";
-import { TypedEvents } from "./types/TypedEvents";
 import { logger } from "./logging";
+import { TypedEvents } from "./types/TypedEvents";
 
 interface AIManagerEvents {
 	processingStarted: () => void;

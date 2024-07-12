@@ -15,9 +15,9 @@ import { TranscribeAction } from "./actions/TranscribeAction";
 import { WriteAction } from "./actions/WriteAction";
 import { AIManager } from "./ai";
 import { registerCommands } from "./commands";
+import { logger } from "./logging";
 import { AssistantTask } from "./tasks/AssistantTask";
 import { TranscribeTask } from "./tasks/TranscribeTask";
-import { logger } from "./logging";
 
 declare const __IS_DEV__: boolean;
 

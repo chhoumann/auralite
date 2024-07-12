@@ -12,7 +12,13 @@ interface TaskEventMap {
 
 type EventProducer = Task | AudioRecorder | AIManager;
 
-type Status = "not started" | "started" | "stopped" | "finished" | "cancelled" | "error";
+type Status =
+	| "not started"
+	| "started"
+	| "stopped"
+	| "finished"
+	| "cancelled"
+	| "error";
 
 export abstract class Task extends TypedEvents<TaskEventMap> {
 	public status: Status = "not started";

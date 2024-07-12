@@ -1,3 +1,4 @@
+import { logger } from "@/logging";
 import { removeWhitespace } from "@/utils";
 import { createStreamingInserter } from "@/utils";
 import { getOpenAIChatStreamProcessor } from "@/utils";
@@ -6,7 +7,6 @@ import type { ChatCompletion, ChatCompletionChunk } from "openai/resources";
 import type { Stream } from "openai/streaming";
 import { z } from "zod";
 import { Action, type ActionContext } from "./Action";
-import { logger } from "@/logging";
 
 export class WriteAction extends Action<typeof WriteAction.inputSchema> {
 	readonly description = "Write content where the user has their cursor.";

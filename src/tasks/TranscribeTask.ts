@@ -1,9 +1,9 @@
 import type { EditorState } from "@/actions/Action";
-import { Task } from "./Task";
 import { FloatingBar } from "@/components/FloatingBar";
 import { WaveformVisualizer } from "@/components/WaveformVisualizer";
-import { delay } from "@/utils";
 import { logger } from "@/logging";
+import { delay } from "@/utils";
+import { Task } from "./Task";
 
 export class TranscribeTask extends Task {
 	private editorState: Partial<EditorState> | undefined;
