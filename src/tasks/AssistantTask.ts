@@ -2,8 +2,8 @@ import type { EditorState } from "@/actions/Action";
 import { FloatingBar } from "@/components/FloatingBar";
 import { WaveformVisualizer } from "@/components/WaveformVisualizer";
 import { logger } from "@/logging";
+import { Task } from "@/tasks/Task";
 import { delay } from "@/utils";
-import { Task } from "./Task";
 
 declare const __IS_DEV__: boolean;
 
