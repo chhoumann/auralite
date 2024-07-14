@@ -11,6 +11,7 @@ import type {
 } from "openai/resources";
 import type { Stream } from "openai/streaming";
 import type { z } from "zod";
+import { renderTemplate } from "@/TemplateEngine";
 
 export type EditorState = {
 	activeView: View;
@@ -35,20 +36,6 @@ export interface ActionContext {
 	state: {
 		editor: Partial<EditorState>;
 	};
-}
-
-export function renderTemplate(
-	template: string,
-	variables: Map<string, unknown>,
-): string {
-	return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-		if (variables.has(key)) {
-			const value = variables.get(key);
-			return value != null ? String(value) : "";
-		}
-
-		throw new Error(`Variable ${key} not found in template`);
-	});
 }
 
 export abstract class Action<TInput extends z.AnyZodObject> {
