@@ -8,6 +8,7 @@ import {
 	type OVSPluginSettings,
 	OVSSettingTab,
 } from "./OVSSettingTab";
+import { SilenceDetection } from "./SilenceDetection";
 import { ActionManager } from "./actions/ActionManager";
 import { CreateNoteAction } from "./actions/CreateNoteAction";
 import { EditAction } from "./actions/EditAction";
@@ -28,8 +29,13 @@ export default class OVSPlugin extends Plugin {
 	contextBuilder!: ContextBuilder;
 	private audioRecorder: AudioRecorder = new AudioRecorder();
 	private aiManager!: AIManager;
+	private silenceDetection!: SilenceDetection;
 
 	private currentTask?: TranscribeTask | AssistantTask;
+
+	public get SilenceDetection() {
+		return this.silenceDetection;
+	}
 
 	override async onload() {
 		await this.loadSettings();
@@ -46,6 +52,21 @@ export default class OVSPlugin extends Plugin {
 		const openAIClient = this.createOpenAIClient();
 		this.contextBuilder = new ContextBuilder(this);
 		this.aiManager = this.createAIManager(openAIClient);
+
+		this.silenceDetection = new SilenceDetection({
+			silenceThreshold: 0.01,
+			silenceDuration: this.settings.SILENCE_DURATION,
+		});
+		this.silenceDetection.setEnabled(this.settings.SILENCE_DETECTION_ENABLED);
+
+		this.silenceDetection.on("silenceDetected", () => {
+			if (this.settings.SILENCE_DETECTION_ENABLED) {
+				logger.debug("Silence detected, stopping recording");
+				if (this.currentTask) {
+					this.currentTask.stop();
+				}
+			}
+		});
 	}
 
 	private registerActions() {
@@ -141,13 +162,21 @@ export default class OVSPlugin extends Plugin {
 		this.currentTask = undefined;
 	}
 
-	private setupCurrentTask(task: TranscribeTask | AssistantTask) {
+	private async setupCurrentTask(task: TranscribeTask | AssistantTask) {
 		this.currentTask?.cancel();
 		this.currentTask = task;
 		this.currentTask.on("taskFinished", () => {
 			this.currentTask = undefined;
+			this.silenceDetection.stop();
 		});
-		this.currentTask.start();
+		await this.currentTask.start();
+
+		const analyser = this.audioRecorder.getAnalyser();
+		logger.debug("Setting up silence detection", { analyser });
+		if (analyser) {
+			this.silenceDetection.setAnalyser(analyser);
+			this.silenceDetection.start();
+		}
 
 		return this.currentTask;
 	}

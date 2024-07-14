@@ -8,11 +8,15 @@ type OpenAIModel = (typeof models)[number];
 export interface OVSPluginSettings {
 	OPENAI_API_KEY: string;
 	OPENAI_MODEL: OpenAIModel;
+	SILENCE_DETECTION_ENABLED: boolean;
+	SILENCE_DURATION: number;
 }
 
 export const DEFAULT_SETTINGS: OVSPluginSettings = {
 	OPENAI_API_KEY: "",
 	OPENAI_MODEL: "gpt-4o",
+	SILENCE_DETECTION_ENABLED: false,
+	SILENCE_DURATION: 2000,
 };
 
 export class OVSSettingTab extends PluginSettingTab {
@@ -30,6 +34,7 @@ export class OVSSettingTab extends PluginSettingTab {
 
 		this.addOpenAIApiKeySetting(containerEl);
 		this.addOpenAIModelSetting(containerEl);
+		this.addSilenceDetectionSettings(containerEl);
 	}
 
 	addOpenAIApiKeySetting(containerEl: HTMLElement) {
@@ -64,5 +69,45 @@ export class OVSSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					});
 			});
+	}
+
+	addSilenceDetectionSettings(containerEl: HTMLElement) {
+		const silenceDetectionSetting = new Setting(containerEl)
+			.setName("Silence Detection")
+			.setDesc("Automatically stop recording after a period of silence")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.SILENCE_DETECTION_ENABLED)
+					.onChange(async (value) => {
+						this.plugin.settings.SILENCE_DETECTION_ENABLED = value;
+						this.plugin.SilenceDetection.setEnabled(value);
+						silenceDetectionSetting.components[1].setDisabled(!value);
+						await this.plugin.saveSettings();
+					}),
+			)
+			.addSlider((slider) =>
+				slider
+					.setLimits(0.5, 10, 0.1)
+					.setValue(this.plugin.settings.SILENCE_DURATION / 1000)
+					.setDynamicTooltip()
+					.setDisabled(!this.plugin.settings.SILENCE_DETECTION_ENABLED)
+					.onChange(async (value) => {
+						const durationMs = Math.round(value * 1000);
+						this.plugin.settings.SILENCE_DURATION = durationMs;
+						this.plugin.SilenceDetection.updateOptions({
+							silenceDuration: durationMs,
+						});
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		silenceDetectionSetting.components[1].setDisabled(
+			!this.plugin.settings.SILENCE_DETECTION_ENABLED,
+		);
+
+		silenceDetectionSetting.controlEl.createEl("span", {
+			text: "seconds",
+			cls: "setting-item-description",
+		});
 	}
 }
