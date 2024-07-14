@@ -10,6 +10,7 @@ export interface OVSPluginSettings {
 	OPENAI_MODEL: OpenAIModel;
 	SILENCE_DETECTION_ENABLED: boolean;
 	SILENCE_DURATION: number;
+	DEFAULT_NOTE_TEMPLATE_PATH: string;
 }
 
 export const DEFAULT_SETTINGS: OVSPluginSettings = {
@@ -17,6 +18,7 @@ export const DEFAULT_SETTINGS: OVSPluginSettings = {
 	OPENAI_MODEL: "gpt-4o",
 	SILENCE_DETECTION_ENABLED: false,
 	SILENCE_DURATION: 2000,
+	DEFAULT_NOTE_TEMPLATE_PATH: "",
 };
 
 export class OVSSettingTab extends PluginSettingTab {
@@ -35,6 +37,7 @@ export class OVSSettingTab extends PluginSettingTab {
 		this.addOpenAIApiKeySetting(containerEl);
 		this.addOpenAIModelSetting(containerEl);
 		this.addSilenceDetectionSettings(containerEl);
+		this.addDefaultNoteTemplateSetting(containerEl);
 	}
 
 	addOpenAIApiKeySetting(containerEl: HTMLElement) {
@@ -108,5 +111,22 @@ export class OVSSettingTab extends PluginSettingTab {
 			text: "seconds",
 			cls: "setting-item-description",
 		});
+	}
+
+	addDefaultNoteTemplateSetting(containerEl: HTMLElement) {
+		new Setting(containerEl)
+			.setName("Default Note Template")
+			.setDesc(
+				"Path to the note to use as a template (leave empty for no template)",
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder("path/to/template.md")
+					.setValue(this.plugin.settings.DEFAULT_NOTE_TEMPLATE_PATH)
+					.onChange(async (value) => {
+						this.plugin.settings.DEFAULT_NOTE_TEMPLATE_PATH = value;
+						await this.plugin.saveSettings();
+					}),
+			);
 	}
 }
