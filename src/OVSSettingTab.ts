@@ -79,8 +79,7 @@ export class OVSSettingTab extends PluginSettingTab {
 				toggle
 					.setValue(this.plugin.settings.SILENCE_DETECTION_ENABLED)
 					.onChange(async (value) => {
-						this.plugin.settings.SILENCE_DETECTION_ENABLED = value;
-						this.plugin.SilenceDetection.setEnabled(value);
+						this.plugin.toggleSilenceDetection(value);
 						silenceDetectionSetting.components[1].setDisabled(!value);
 						await this.plugin.saveSettings();
 					}),
@@ -94,7 +93,7 @@ export class OVSSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						const durationMs = Math.round(value * 1000);
 						this.plugin.settings.SILENCE_DURATION = durationMs;
-						this.plugin.SilenceDetection.updateOptions({
+						this.plugin.updateSilenceDetectionOptions({
 							silenceDuration: durationMs,
 						});
 						await this.plugin.saveSettings();

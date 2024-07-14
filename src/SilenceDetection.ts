@@ -14,7 +14,6 @@ export class SilenceDetection extends TypedEvents<SilenceDetectionEvents> {
 	private silenceDuration: number;
 	private silenceTimer: ReturnType<typeof setTimeout> | null = null;
 	private analyser: AnalyserNode | null = null;
-	private enabled: boolean = true;
 
 	constructor(options: SilenceDetectionOptions) {
 		super();
@@ -22,27 +21,20 @@ export class SilenceDetection extends TypedEvents<SilenceDetectionEvents> {
 		this.silenceDuration = options.silenceDuration;
 	}
 
-	setEnabled(enabled: boolean) {
-		this.enabled = enabled;
-		if (!enabled) {
-			this.stop();
-		}
-	}
-
 	setAnalyser(analyser: AnalyserNode) {
 		this.analyser = analyser;
 	}
 
 	start() {
-		if (!this.enabled || !this.analyser) {
-			return;
+		if (!this.analyser) {
+			throw new Error("Analyser not set");
 		}
 
 		const bufferLength = this.analyser.frequencyBinCount;
 		const dataArray = new Uint8Array(bufferLength);
 
 		const checkSilence = () => {
-			if (!this.enabled || !this.analyser) return;
+			if (!this.analyser) return;
 
 			this.analyser.getByteFrequencyData(dataArray);
 			const average =
@@ -84,7 +76,6 @@ export class SilenceDetection extends TypedEvents<SilenceDetectionEvents> {
 		if (options.silenceThreshold !== undefined) {
 			this.silenceThreshold = options.silenceThreshold;
 		}
-
 		if (options.silenceDuration !== undefined) {
 			this.silenceDuration = options.silenceDuration;
 		}
