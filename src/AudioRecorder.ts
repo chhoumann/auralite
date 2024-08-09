@@ -61,6 +61,7 @@ export class AudioRecorder extends TypedEvents<AudioRecorderEvents> {
 
 	teardown() {
 		this.trigger("teardown");
+
 		if (this.mediaRecorder) {
 			this.mediaRecorder.removeEventListener(
 				"dataavailable",
@@ -72,6 +73,16 @@ export class AudioRecorder extends TypedEvents<AudioRecorderEvents> {
 			}
 			this.mediaRecorder = null;
 		}
+
+		if (this.audioContext) {
+			if (this.audioContext.state !== "closed") {
+				this.audioContext.close();
+			}
+
+			this.audioContext = null;
+			this.analyser = null;
+		}
+
 		this.audioChunks = [];
 		this.recordingPromise = null;
 		this.resolveRecording = null;
@@ -123,6 +134,10 @@ export class AudioRecorder extends TypedEvents<AudioRecorderEvents> {
 
 		this.mediaRecorder.stop();
 
+		for (const track of this.mediaRecorder.stream.getTracks()) {
+			track.stop();
+		}
+
 		return (
 			this.recordingPromise ??
 			Promise.reject(new Error("Recording promise not initialized"))
@@ -138,6 +153,7 @@ export class AudioRecorder extends TypedEvents<AudioRecorderEvents> {
 				this.trigger("recordingCancelled", error);
 			}
 		}
+
 		this.teardown();
 	}
 

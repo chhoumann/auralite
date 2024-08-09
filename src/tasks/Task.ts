@@ -35,7 +35,7 @@ export abstract class Task extends TypedEvents<TaskEventMap> {
 		this.setupEventListeners();
 	}
 
-	start(): void {
+	async start(): Promise<void> {
 		this.status = "started";
 		this.trigger("taskStarted");
 	}

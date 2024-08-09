@@ -11,6 +11,7 @@ import type {
 } from "openai/resources";
 import type { Stream } from "openai/streaming";
 import type { z } from "zod";
+import { renderTemplate } from "@/TemplateEngine";
 
 export type EditorState = {
 	activeView: View;
@@ -55,8 +56,10 @@ export abstract class Action<TInput extends z.AnyZodObject> {
 			throw new Error("Action cancelled");
 		}
 
+		const prompt = renderTemplate(this.systemPrompt, context.results);
+
 		const msgs: Array<ChatCompletionMessageParam> = [
-			{ role: "system", content: this.systemPrompt },
+			{ role: "system", content: prompt },
 			{
 				role: "system",
 				content: `## Context:\n${JSON.stringify(Object.fromEntries(context.results))}`,

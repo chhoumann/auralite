@@ -13,9 +13,9 @@ export class AssistantTask extends Task {
 	private floatingBar: FloatingBar | null = null;
 	private waveformVisualizer: WaveformVisualizer | null = null;
 
-	override start() {
+	override async start() {
 		super.start();
-		this.audioRecorder.start();
+		await this.audioRecorder.start();
 	}
 
 	override stop() {

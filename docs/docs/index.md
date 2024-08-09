@@ -43,6 +43,21 @@ When you need a new note on a specific topic, the AI can help. Here's how:
 3. Optionally specify how you want the note opened (e.g., new tab, split pane).
 4. The AI will generate the note and open it as requested.
 
+If you've set up a default note template in the Auralite settings, the new note will use that template as a starting point.
+
+### Edit
+
+The AI Assistant can help you make specific changes to your current note. To use this feature:
+
+1. Make sure you're in the note you want to edit.
+2. Activate the AI Assistant if it's not already listening.
+3. Ask it to make a specific change, like "Add a new section about cats" or "Rewrite the second paragraph to be more concise".
+4. The AI will make the requested changes while preserving the rest of your note's content.
+
+I've been using this feature to help me write my daily journal. It's been working well for me.
+
+It can even update the note's frontmatter, such as the title and tags. You just have to be specific about what you want it to do.
+
 ## Transcription
 
 Auralite can help you transform raw transcriptions into well-formatted text.
@@ -65,6 +80,17 @@ If you need to stop an AI task in progress:
 1. Open the command palette.
 2. Select "Cancel Ongoing Operation".
 3. The current AI task will immediately stop.
+
+## Silence Detection
+
+Auralite can automatically stop recording after a period of silence. This is so you don't have to manually stop the recording. 
+
+To use this feature:
+1. Enable Silence Detection in the Auralite settings.
+2. Adjust the silence duration to your preference (e.g., 2 seconds).
+3. When using the Transcribe feature, Auralite will automatically stop recording if it detects silence for the specified duration.
+
+It is recommended that you do not use this feature unless you need to. It is better to manually stop the recording.
 
 ## Tips for Using Auralite
 
