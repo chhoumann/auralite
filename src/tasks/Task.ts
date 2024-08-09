@@ -1,4 +1,4 @@
-import type OVSPlugin from "@/main";
+import type AuralitePlugin from "@/main";
 import { TypedEvents } from "@/types/TypedEvents";
 import type { EventRef } from "obsidian";
 import type { AudioRecorder } from "../AudioRecorder";
@@ -26,7 +26,7 @@ export abstract class Task extends TypedEvents<TaskEventMap> {
 	protected eventRefs: Map<EventProducer, EventRef[]> = new Map();
 
 	constructor(
-		protected plugin: OVSPlugin,
+		protected plugin: AuralitePlugin,
 		protected audioRecorder: AudioRecorder,
 		protected contextBuilder: ContextBuilder,
 		protected aiManager: AIManager,

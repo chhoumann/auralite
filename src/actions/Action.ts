@@ -1,6 +1,6 @@
 import type { AIManager } from "@/ai";
 import { logger } from "@/logging";
-import type OVSPlugin from "@/main";
+import type AuralitePlugin from "@/main";
 import type Instructor from "@instructor-ai/instructor";
 import type { App, Editor, EditorPosition, View } from "obsidian";
 import type OpenAI from "openai";
@@ -25,7 +25,7 @@ export type EditorState = {
 };
 
 export interface ActionContext {
-	plugin: OVSPlugin;
+	plugin: AuralitePlugin;
 	app: App;
 	oai: OpenAI;
 	ai: AIManager;

@@ -1,24 +1,24 @@
 import { type App, PluginSettingTab, Setting } from "obsidian";
-import type OVSPlugin from "./main";
+import type AuralitePlugin from "./main";
 
 const models = ["gpt-4o"] as const;
 
 type OpenAIModel = (typeof models)[number];
 
-export interface OVSPluginSettings {
+export interface AuralitePluginSettings {
 	OPENAI_API_KEY: string;
 	OPENAI_MODEL: OpenAIModel;
 }
 
-export const DEFAULT_SETTINGS: OVSPluginSettings = {
+export const DEFAULT_SETTINGS: AuralitePluginSettings = {
 	OPENAI_API_KEY: "",
 	OPENAI_MODEL: "gpt-4o",
 };
 
-export class OVSSettingTab extends PluginSettingTab {
-	plugin: OVSPlugin;
+export class AuraliteSettingsTab extends PluginSettingTab {
+	plugin: AuralitePlugin;
 
-	constructor(app: App, plugin: OVSPlugin) {
+	constructor(app: App, plugin: AuralitePlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
