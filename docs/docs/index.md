@@ -40,7 +40,7 @@ When you need a new note on a specific topic, the AI can help. Here's how:
 
 1. Ensure the AI Assistant is listening.
 2. Ask it to create a new note on your desired topic.
-3. Specify how you want the note opened (e.g., new tab, split pane).
+3. Optionally specify how you want the note opened (e.g., new tab, split pane).
 4. The AI will generate the note and open it as requested.
 
 ## Transcription
@@ -52,7 +52,7 @@ Auralite can help you transform raw transcriptions into well-formatted text.
 To use the transcribe feature:
 
 1. Open the command palette and select "Transcribe".
-2. Provide your raw transcription to the AI.
+2. Speak what's on your mind.
 3. The AI will format the transcription for better readability.
 4. The formatted result will appear at your cursor's location.
 
@@ -68,7 +68,7 @@ If you need to stop an AI task in progress:
 
 ## Tips for Using Auralite
 
-1. **Be specific**: When asking the AI to write or create notes, provide clear instructions for best results.
+1. **Be specific**: When asking the AI to write or create notes, provide clear instructions for best results. It can take context from your notes, so be specific about what you want it to do. For example, you can say that you have selected some text, or refer to the current note, and ask it to use that context.
 2. **Experiment**: Try different ways of interacting with the AI to find what works best for your workflow.
 3. **Use Markdown**: Remember that the AI understands and uses Markdown, so you can ask for formatted content, lists, headers, etc.
 4. **Math and Equations**: For complex math, ask the AI to use LaTeX syntax between $$ symbols.
