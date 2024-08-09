@@ -1,56 +1,76 @@
-# Get started
+# Auralite
 
-This guide will help you install and set up Auralite.
+Auralite is an AI-powered assistant for Obsidian that helps you manage your ideas and knowledge more effectively.
 
-## Installation
+Read the [get started](get-started.md) guide to set up and get started with Auralite.
 
-There are two ways to install Auralite:
+Here are the main features and how to use them:
 
-### Option 1: Install via BRAT (Recommended)
+## AI Assistant
 
-1. Install [BRAT](https://tfthacker.com/brat-quick-guide) (Beta Reviewer's Auto-update Tool) from Obsidian's Community Plugins.
-2. Open the command palette and run `BRAT: Add a beta plugin for testing`.
-3. Enter `chhoumann/auralite` when prompted for the repository.
-4. Click "Add Plugin" and wait for BRAT to confirm installation.
-5. Go to Settings > Community plugins.
-6. Refresh the plugin list.
-7. Find "Auralite" and enable it.
+The AI Assistant is your always-ready companion in your Obsidian vault, eager to help with various tasks.
 
-To update the plugin later, use the command `BRAT: Check for updates to all beta plugins and UPDATE`.
+### Toggle AI Assistant Listening
 
-### Option 2: Manual Installation
+The "Toggle AI Assistant Listening" feature activates or deactivates your AI companion. Here's how to use it:
 
-For those who prefer manual installation, a beta-beta version is available.
+1. Open the command palette with Ctrl/Cmd + P.
+2. Type "Toggle AI Assistant Listening" and select it.
+3. The AI Assistant is now listening and ready to help.
+4. When you're done, repeat the process to turn it off.
 
-1. Download the latest release from the [GitHub releases page](https://github.com/chhoumann/auralite/releases). You should download the `manifest.json`, `main.js` and `styles.css` files.
-    1. You can also download the beta version, noted by `-beta.x` in the release name. Beta releases are not guaranteed to be stable, but have the latest features.
-2. Move the files into your Obsidian vault's plugins folder, in a designated folder for the plugin. If you call the folder `auralite`, the files should be in `<your_vault>/.obsidian/plugins/auralite/`.
-3. Go to Settings > Community plugins.
-4. Refresh the plugin list.
-5. Find `Auralite` and enable it.
+Currently, the AI Assistant requires you to turn it off before it performs an action.
+It can only perform one action at a time and will not perform multiple actions per activation.
 
-Note: With manual installation, you'll need to repeat these steps to update the plugin when new versions are released.
-Either restart Obsidian, or enable and disable the plugin to update it, after downloading the new version.
+With the AI Assistant active, you can direct it to perform various tasks.
+If you ever need it to disregard your instructions and not do anything, you can say something along the lines of "actually, never mind, don't do anything".
 
+### Write
 
-## Initial Setup
+Your AI Assistant can help overcome writer's block by generating content right where you need it. To use this feature:
 
-After installation, follow these steps to get started:
+1. Place your cursor where you want the new content.
+2. Activate the AI Assistant if it's not already listening.
+3. Ask it to write about a specific topic or continue your thoughts.
+4. The AI will generate content, formatted in Markdown, including Obsidian-style links ([[like this]]) and math equations when appropriate.
 
-1. Open Obsidian Settings.
-2. Navigate to the Auralite plugin settings.
-3. Enter your OpenAI API key in the designated field.
+### Create Note
 
-## Basic Usage
+When you need a new note on a specific topic, the AI can help. Here's how:
 
-While detailed usage instructions are still in development, here are some key features:
+1. Ensure the AI Assistant is listening.
+2. Ask it to create a new note on your desired topic.
+3. Specify how you want the note opened (e.g., new tab, split pane).
+4. The AI will generate the note and open it as requested.
 
-- Create new notes using voice commands
-- Transcribe your speech (with formatting)
-- Write directly to the current note using voice input
+## Transcription
 
-## Feedback and Support
+Auralite can help you transform raw transcriptions into well-formatted text.
 
-As Auralite is in early beta, your feedback is valuable. If you encounter any issues or have ideas for improvement, please let me know.
+### Transcribe
 
-Either open an issue on the [GitHub repository](https://github.com/chhoumann/auralite) or contact me on [Twitter](https://twitter.com/chrisbbh).
+To use the transcribe feature:
+
+1. Open the command palette and select "Transcribe".
+2. Provide your raw transcription to the AI.
+3. The AI will format the transcription for better readability.
+4. The formatted result will appear at your cursor's location.
+
+## Utility Commands
+
+### Cancel Ongoing Operation
+
+If you need to stop an AI task in progress:
+
+1. Open the command palette.
+2. Select "Cancel Ongoing Operation".
+3. The current AI task will immediately stop.
+
+## Tips for Using Auralite
+
+1. **Be specific**: When asking the AI to write or create notes, provide clear instructions for best results.
+2. **Experiment**: Try different ways of interacting with the AI to find what works best for your workflow.
+3. **Use Markdown**: Remember that the AI understands and uses Markdown, so you can ask for formatted content, lists, headers, etc.
+4. **Math and Equations**: For complex math, ask the AI to use LaTeX syntax between $$ symbols.
+
+Enjoy using Auralite to enhance your Obsidian experience!
