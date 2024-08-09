@@ -1,9 +1,9 @@
 import type { ActionContext, EditorState } from "@/actions/Action";
 import type { AIManager } from "@/ai";
-import type OVSPlugin from "@/main";
+import type AuralitePlugin from "@/main";
 import { MarkdownView, TFile } from "obsidian";
 
-async function getActiveFileFormatted(plugin: OVSPlugin) {
+async function getActiveFileFormatted(plugin: AuralitePlugin) {
 	const file = plugin.app.workspace.getActiveFile();
 
 	if (!file || !(file instanceof TFile)) {
@@ -14,7 +14,7 @@ async function getActiveFileFormatted(plugin: OVSPlugin) {
 }
 
 export class ContextBuilder {
-	constructor(private plugin: OVSPlugin) {}
+	constructor(private plugin: AuralitePlugin) {}
 
 	async captureEditorState(): Promise<Partial<EditorState>> {
 		const activeView =

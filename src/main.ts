@@ -5,9 +5,9 @@ import { AudioRecorder } from "./AudioRecorder";
 import { ContextBuilder } from "./ContextBuilder";
 import {
 	DEFAULT_SETTINGS,
-	type OVSPluginSettings,
-	OVSSettingTab,
-} from "./OVSSettingTab";
+	type AuralitePluginSettings,
+	AuraliteSettingsTab,
+} from "./AuraliteSettingsTab";
 import {
 	SilenceDetection,
 	type SilenceDetectionOptions,
@@ -26,8 +26,8 @@ import { TranscribeTask } from "./tasks/TranscribeTask";
 
 declare const __IS_DEV__: boolean;
 
-export default class OVSPlugin extends Plugin {
-	settings!: OVSPluginSettings;
+export default class AuralitePlugin extends Plugin {
+	settings!: AuralitePluginSettings;
 	actionManager!: ActionManager;
 	contextBuilder!: ContextBuilder;
 	private audioRecorder: AudioRecorder = new AudioRecorder();
@@ -40,7 +40,7 @@ export default class OVSPlugin extends Plugin {
 		this.initializeComponents();
 		this.setupPushToTalkEvents();
 		registerCommands(this);
-		this.addSettingTab(new OVSSettingTab(this.app, this));
+		this.addSettingTab(new AuraliteSettingsTab(this.app, this));
 	}
 
 	private initializeComponents() {

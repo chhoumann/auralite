@@ -1,5 +1,5 @@
 import type { EditorState } from "@/actions/Action";
-import type OVSPlugin from "@/main";
+import type AuralitePlugin from "@/main";
 import { removeWhitespace } from "@/utils";
 import type Instructor from "@instructor-ai/instructor";
 import type OpenAI from "openai";
@@ -25,7 +25,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 	abortController: AbortController | null = null;
 
 	constructor(
-		private plugin: OVSPlugin,
+		private plugin: AuralitePlugin,
 		private actionIds: string[],
 		private oai: OpenAI,
 		private instructorClient: ReturnType<typeof Instructor>,

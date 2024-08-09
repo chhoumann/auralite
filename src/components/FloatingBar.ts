@@ -10,14 +10,14 @@ export class FloatingBar {
 
 	constructor(parentElement: HTMLElement) {
 		this.container = parentElement.createEl("div", {
-			cls: "ovs-floating-bar-container",
+			cls: "auralite-floating-bar-container",
 		});
-		this.bar = this.container.createEl("div", { cls: "ovs-floating-bar" });
+		this.bar = this.container.createEl("div", { cls: "auralite-floating-bar" });
 		this._waveformContainer = this.bar.createEl("div", {
-			cls: "ovs-waveform-container",
+			cls: "auralite-waveform-container",
 		});
 		this.statusContainer = this.bar.createEl("div", {
-			cls: "ovs-status-container",
+			cls: "auralite-status-container",
 		});
 
 		this.hide(true);

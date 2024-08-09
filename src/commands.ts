@@ -1,12 +1,12 @@
 import { type Command, Notice } from "obsidian";
-import type OVSPlugin from "./main";
+import type AuralitePlugin from "./main";
 
 declare const __IS_DEV__: boolean;
 
-export function registerCommands(plugin: OVSPlugin): void {
+export function registerCommands(plugin: AuralitePlugin): void {
 	const commands: Array<Command> = [
 		{
-			id: "reload-ovs",
+			id: "reload-auralite",
 			name: `Reload ${plugin.manifest.name}${__IS_DEV__ ? " (dev)" : ""}`,
 			checkCallback: (checking: boolean) => {
 				if (checking) {
@@ -36,7 +36,7 @@ export function registerCommands(plugin: OVSPlugin): void {
 			},
 		},
 		{
-			id: "ovs-transcribe",
+			id: "auralite-transcribe",
 			name: "Transcribe",
 			callback: () => {
 				plugin.toggleTranscribe();
