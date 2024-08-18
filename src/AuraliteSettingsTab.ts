@@ -1,7 +1,7 @@
 import { type App, PluginSettingTab, Setting } from "obsidian";
 import type AuralitePlugin from "./main";
 
-const models = ["gpt-4o"] as const;
+const models = ["gpt-4o", "gpt-4o-mini"] as const;
 
 type OpenAIModel = (typeof models)[number];
 
