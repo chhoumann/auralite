@@ -15,7 +15,8 @@ export class WriteAction extends Action<typeof WriteAction.inputSchema> {
 		never: z.never(),
 	});
 
-	static systemPrompt = removeWhitespace(`You are an AI assistant writing content directly into an Obsidian note.
+	static systemPrompt =
+		removeWhitespace(`You are an AI assistant writing content directly into an Obsidian note.
         Format your responses using Markdown syntax.
         Use the [[Obsidian]] link format for internal links.
         You can write aliases for links using [[Obsidian|alias]] format.

@@ -1,10 +1,10 @@
+import { renderTemplate } from "@/TemplateEngine";
 import { logger } from "@/logging";
 import { openFile } from "@/obsidianUtils";
 import { removeWhitespace } from "@/utils";
+import { TFile } from "obsidian";
 import { z } from "zod";
 import { Action, type ActionContext } from "./Action";
-import { TFile } from "obsidian";
-import { renderTemplate } from "@/TemplateEngine";
 
 export class CreateNoteAction extends Action<
 	typeof CreateNoteAction.inputSchema
@@ -39,7 +39,8 @@ export class CreateNoteAction extends Action<
 			.describe("Whether to focus the file after opening."),
 	});
 
-	static systemPrompt = removeWhitespace(`You are an expert at creating notes in Obsidian.
+	static systemPrompt =
+		removeWhitespace(`You are an expert at creating notes in Obsidian.
             As an AI assistant within Obsidian, your primary goal is to help users manage their ideas and knowledge more effectively.
             Format your responses using Markdown syntax.
             Please use the [[Obsidian]] link format.

@@ -18,7 +18,8 @@ export class TranscribeAction extends Action<
 			.describe("The formatted transcription of the audio."),
 	});
 
-	static systemPrompt = removeWhitespace(`You format transcribed audio to be more readable.
+	static systemPrompt =
+		removeWhitespace(`You format transcribed audio to be more readable.
 
             As an AI assistant within Obsidian, your primary goal is to help users manage their ideas and knowledge more effectively.
             Format your responses using Markdown syntax.
