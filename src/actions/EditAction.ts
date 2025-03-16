@@ -1,7 +1,8 @@
 import { logger } from "@/logging";
+import { renderTemplate } from "@/TemplateEngine";
 import { removeWhitespace } from "@/utils";
 import { type Editor, MarkdownView, type TFile } from "obsidian";
-import type { ChatCompletion } from "openai/resources";
+import type { ChatCompletion, ChatCompletionMessageParam } from "openai/resources";
 import { merge } from "three-way-merge";
 import { z } from "zod";
 import { Action, type ActionContext } from "./Action";
@@ -132,5 +133,70 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 		});
 
 		await context.app.vault.modify(this.file, res.joinedResults() as string);
+	}
+
+	/**
+	 * Override the execute method to handle edit mode
+	 */
+	override async execute(context: ActionContext): Promise<void> {
+		await this.preExecute(context);
+
+		if (context.abortSignal.aborted) {
+			throw new Error("Action cancelled");
+		}
+
+		// Check if edit mode is enabled
+		const useEditMode = context.results.get("useEditMode") === true;
+		const prompt = renderTemplate(this.systemPrompt, context.results);
+
+		const msgs: Array<ChatCompletionMessageParam> = [
+			{ role: "system", content: prompt },
+			{
+				role: "system",
+				content: `## Context:\n${JSON.stringify(Object.fromEntries(context.results))}`,
+			},
+		];
+
+		logger.debug("EditAction executing", { 
+			useEditMode,
+			messages: msgs,
+			fileContent: this.fileContent,
+		});
+
+		if (useEditMode && this.fileContent) {
+			// Use edit mode
+			const response = await context.ai.createOpenAIChatCompletion(
+				msgs, 
+				{}, 
+				true, 
+				this.fileContent
+			);
+			await this.performAction(response, context);
+		} else {
+			// Use standard mode (calling the parent implementation)
+			if (this.useInstructor) {
+				if (this.supportsStreaming) {
+					const stream = await context.ai.createInstructorChatCompletionStream(
+						this.inputSchema,
+						msgs,
+					);
+					await this.performActionStream(stream, context);
+				} else {
+					const input = await context.ai.createInstructorChatCompletion(
+						this.inputSchema,
+						msgs,
+					);
+					await this.performAction(input, context);
+				}
+			} else {
+				if (this.supportsStreaming) {
+					const stream = await context.ai.createOpenAIChatCompletionStream(msgs);
+					await this.performActionStream(stream, context);
+				} else {
+					const response = await context.ai.createOpenAIChatCompletion(msgs);
+					await this.performAction(response, context);
+				}
+			}
+		}
 	}
 }

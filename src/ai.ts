@@ -131,6 +131,13 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 							.map(([key, value]) => `- ${key}: ${value}`)
 							.join("\n")}`,
 					),
+				useEditMode: z
+					.boolean()
+					.optional()
+					.default(this.plugin.settings.USE_EDIT_MODE_BY_DEFAULT)
+					.describe(
+						"Whether to use the edit mode for faster completions. Only set to true if this involves editing an existing file with moderate to substantial changes.",
+					),
 			});
 
 			const actionResult = await this.createInstructorChatCompletion(
@@ -170,6 +177,11 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 				this.plugin.actionManager.getAction(actionResult.action)?.description,
 			);
 			input.set("userInput", userInput);
+			
+			// Add edit mode flag if specified
+			if (actionResult.useEditMode !== undefined) {
+				input.set("useEditMode", actionResult.useEditMode);
+			}
 
 			logger.debug("input", { input });
 
@@ -249,15 +261,27 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 	async createOpenAIChatCompletion(
 		messages: Array<ChatCompletionMessageParam>,
 		options?: Partial<ClientOptions>,
+		useEditMode: boolean = false,
+		fileContent?: string,
 	) {
 		this.abortController = new AbortController();
 		try {
+			const requestOptions: any = {
+				messages,
+				model: this.plugin.settings.OPENAI_MODEL,
+				...options,
+			};
+
+			// Add prediction for edit mode if enabled and file content is available
+			if (useEditMode && fileContent) {
+				requestOptions.prediction = {
+					content: fileContent,
+					type: "content",
+				};
+			}
+
 			return await this.oai.chat.completions.create(
-				{
-					messages,
-					model: this.plugin.settings.OPENAI_MODEL,
-					...options,
-				},
+				requestOptions,
 				{ signal: this.abortController.signal },
 			);
 		} catch (error) {
