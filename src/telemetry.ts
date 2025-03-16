@@ -5,27 +5,75 @@
 import { logger } from "./logging";
 
 export interface TokenUsage {
+	// Token counts
 	promptTokens: number;
 	completionTokens: number;
 	totalTokens: number;
+	
+	// Request metadata
 	model: string;
 	operation: string;
 	editMode?: boolean;
+	isStreaming?: boolean;
+	
+	// Performance metrics
 	timestamp: Date;
+	startTime?: number; // ms since epoch when request started
+	endTime?: number;   // ms since epoch when request completed
+	duration?: number;  // ms duration of the request (endTime - startTime)
+	
+	// Error tracking
+	hasError?: boolean;
+	errorType?: string;
+	errorMessage?: string;
+	
+	// Cost metrics
+	estimatedCost?: number;
+	
+	// Request debugging (optional - only when debug mode is enabled)
+	requestId?: string;
+	requestPayload?: string; // JSON stringified if in debug mode
 }
 
 export interface UsageSummary {
+	// Token metrics
 	totalPromptTokens: number;
 	totalCompletionTokens: number;
 	totalTokens: number;
+	
+	// Operation metrics
 	operationCounts: Record<string, number>;
 	modelCounts: Record<string, number>;
+	streamingCount: number;
+	nonStreamingCount: number;
+	
+	// Usage breakdown
 	usageByModel: Record<
 		string,
-		{ promptTokens: number; completionTokens: number; totalTokens: number }
+		{ 
+			promptTokens: number; 
+			completionTokens: number; 
+			totalTokens: number;
+			requestCount: number;
+			avgDuration?: number;
+		}
 	>;
+	
+	// Cost metrics
 	estimatedCost: number;
+	
+	// Time-based metrics
 	dailyUsage: Record<string, number>;
+	
+	// Performance metrics
+	avgRequestDuration?: number;
+	minRequestDuration?: number;
+	maxRequestDuration?: number;
+	
+	// Error metrics
+	errorCount: number;
+	errorRate: number; // percentage of requests that failed
+	errorsByType: Record<string, number>;
 }
 
 // Model pricing per 1K tokens (in USD)
@@ -48,6 +96,9 @@ export class Telemetry {
 	private static instance: Telemetry;
 	private tokenUsage: TokenUsage[] = [];
 	private enabled = true;
+	private debugMode = false;
+	private maxLogSize = 1000; // Maximum number of records to keep
+	
 	// Pricing per 1000 tokens in USD
 	private modelPricing: Record<string, ModelPricing> = {
 		"gpt-4o": { prompt: 0.005, completion: 0.015 },
@@ -56,13 +107,25 @@ export class Telemetry {
 		// Default for unknown models
 		default: { prompt: 0.001, completion: 0.002 },
 	};
+	
+	// Storage key is not currently used - will be needed if we add persistence
+	// outside of the plugin settings
+	
+	// Generate a unique ID for each request
+	private requestCounter = 0;
 
 	// Get default pricing for unknown models
 	private getDefaultPricing(): ModelPricing {
 		return this.modelPricing["default"];
 	}
 
-	private constructor() {}
+	private constructor() {
+		// Rotate logs if they exceed the maximum size
+		if (this.tokenUsage.length > this.maxLogSize) {
+			logger.info(`Telemetry log rotated, keeping last ${this.maxLogSize} records`);
+			this.tokenUsage = this.tokenUsage.slice(-this.maxLogSize);
+		}
+	}
 
 	public static getInstance(): Telemetry {
 		if (!Telemetry.instance) {
@@ -78,6 +141,38 @@ export class Telemetry {
 		this.enabled = enabled;
 		logger.info(`Telemetry ${enabled ? "enabled" : "disabled"}`);
 	}
+	
+	/**
+	 * Enable or disable debug mode for detailed request/response logging
+	 */
+	public setDebugMode(enabled: boolean): void {
+		this.debugMode = enabled;
+		logger.info(`Telemetry debug mode ${enabled ? "enabled" : "disabled"}`);
+	}
+	
+	/**
+	 * Is debug mode enabled
+	 */
+	public isDebugMode(): boolean {
+		return this.debugMode;
+	}
+	
+	/**
+	 * Generate a unique request ID
+	 */
+	public generateRequestId(): string {
+		this.requestCounter++;
+		return `req_${Date.now()}_${this.requestCounter}`;
+	}
+	
+	/**
+	 * Estimate token count from text
+	 */
+	public estimateTokenCount(text: string): number {
+		if (!text) return 0;
+		// Basic estimation: ~4 characters per token as a rough estimate
+		return Math.ceil(text.length / 4);
+	}
 
 	/**
 	 * Record token usage from an operation
@@ -85,13 +180,52 @@ export class Telemetry {
 	public recordTokenUsage(usage: Omit<TokenUsage, "timestamp">): void {
 		if (!this.enabled) return;
 
+		// Add timestamp and any missing fields
+		const now = new Date();
 		const usageWithTimestamp: TokenUsage = {
 			...usage,
-			timestamp: new Date(),
+			timestamp: now,
 		};
+		
+		// Calculate duration if we have start/end times
+		if (usageWithTimestamp.startTime && usageWithTimestamp.endTime) {
+			usageWithTimestamp.duration = usageWithTimestamp.endTime - usageWithTimestamp.startTime;
+		}
+		
+		// Calculate estimated cost
+		if (usageWithTimestamp.estimatedCost === undefined) {
+			const pricing = this.modelPricing[usage.model] || this.getDefaultPricing();
+			usageWithTimestamp.estimatedCost = 
+				(usage.promptTokens / 1000) * pricing.prompt + 
+				(usage.completionTokens / 1000) * pricing.completion;
+		}
+		
+		// Enforce maximum log size
+		if (this.tokenUsage.length >= this.maxLogSize) {
+			this.tokenUsage.shift(); // Remove oldest entry
+		}
 
 		this.tokenUsage.push(usageWithTimestamp);
-		logger.debug("Token usage recorded", { usage: usageWithTimestamp });
+		
+		// Log level depends on whether there was an error
+		if (usageWithTimestamp.hasError) {
+			logger.warn("Token usage recorded with error", { 
+				usage: this.debugMode ? usageWithTimestamp : {
+					model: usageWithTimestamp.model,
+					operation: usageWithTimestamp.operation,
+					errorType: usageWithTimestamp.errorType,
+					errorMessage: usageWithTimestamp.errorMessage
+				}
+			});
+		} else {
+			logger.debug("Token usage recorded", { 
+				usage: this.debugMode ? usageWithTimestamp : {
+					model: usageWithTimestamp.model,
+					operation: usageWithTimestamp.operation,
+					tokens: usageWithTimestamp.totalTokens
+				}
+			});
+		}
 	}
 
 	/**
@@ -144,17 +278,46 @@ export class Telemetry {
 	 */
 	public getUsageSummary(): UsageSummary {
 		const summary: UsageSummary = {
+			// Token metrics
 			totalPromptTokens: 0,
 			totalCompletionTokens: 0,
 			totalTokens: 0,
+			
+			// Operation metrics
 			operationCounts: {},
 			modelCounts: {},
+			streamingCount: 0,
+			nonStreamingCount: 0,
+			
+			// Usage breakdown
 			usageByModel: {},
+			
+			// Cost metrics
 			estimatedCost: 0,
+			
+			// Time-based metrics
 			dailyUsage: {},
+			
+			// Performance metrics
+			avgRequestDuration: undefined,
+			minRequestDuration: undefined,
+			maxRequestDuration: undefined,
+			
+			// Error metrics
+			errorCount: 0,
+			errorRate: 0,
+			errorsByType: {}
 		};
 
+		if (this.tokenUsage.length === 0) {
+			return summary;
+		}
+
+		let totalDuration = 0;
+		let countWithDuration = 0;
+		
 		for (const usage of this.tokenUsage) {
+			// Calculate token metrics
 			summary.totalPromptTokens += usage.promptTokens;
 			summary.totalCompletionTokens += usage.completionTokens;
 			summary.totalTokens += usage.totalTokens;
@@ -166,6 +329,13 @@ export class Telemetry {
 			// Count by model
 			summary.modelCounts[usage.model] =
 				(summary.modelCounts[usage.model] || 0) + 1;
+				
+			// Count streaming vs non-streaming
+			if (usage.isStreaming) {
+				summary.streamingCount++;
+			} else {
+				summary.nonStreamingCount++;
+			}
 
 			// Track usage by model
 			if (!summary.usageByModel[usage.model]) {
@@ -173,26 +343,73 @@ export class Telemetry {
 					promptTokens: 0,
 					completionTokens: 0,
 					totalTokens: 0,
+					requestCount: 0,
+					avgDuration: undefined
 				};
 			}
-			summary.usageByModel[usage.model].promptTokens += usage.promptTokens;
-			summary.usageByModel[usage.model].completionTokens +=
-				usage.completionTokens;
-			summary.usageByModel[usage.model].totalTokens += usage.totalTokens;
+			
+			const modelStats = summary.usageByModel[usage.model];
+			modelStats.promptTokens += usage.promptTokens;
+			modelStats.completionTokens += usage.completionTokens;
+			modelStats.totalTokens += usage.totalTokens;
+			modelStats.requestCount++;
+			
+			// Performance tracking
+			if (usage.duration !== undefined) {
+				// Overall duration statistics
+				totalDuration += usage.duration;
+				countWithDuration++;
+				
+				if (summary.minRequestDuration === undefined || usage.duration < summary.minRequestDuration) {
+					summary.minRequestDuration = usage.duration;
+				}
+				
+				if (summary.maxRequestDuration === undefined || usage.duration > summary.maxRequestDuration) {
+					summary.maxRequestDuration = usage.duration;
+				}
+				
+				// Per-model duration tracking
+				if (modelStats.avgDuration === undefined) {
+					modelStats.avgDuration = usage.duration;
+				} else {
+					modelStats.avgDuration = 
+						(modelStats.avgDuration * (modelStats.requestCount - 1) + usage.duration) / 
+						modelStats.requestCount;
+				}
+			}
+			
+			// Error tracking
+			if (usage.hasError) {
+				summary.errorCount++;
+				
+				const errorType = usage.errorType || "unknown";
+				summary.errorsByType[errorType] = (summary.errorsByType[errorType] || 0) + 1;
+			}
 
-			// Calculate cost
-			const pricing =
-				this.modelPricing[usage.model] || this.getDefaultPricing();
-			const promptCost = (usage.promptTokens / 1000) * pricing.prompt;
-			const completionCost =
-				(usage.completionTokens / 1000) * pricing.completion;
-			summary.estimatedCost += promptCost + completionCost;
+			// Cost calculation (use pre-calculated cost if available)
+			if (usage.estimatedCost !== undefined) {
+				summary.estimatedCost += usage.estimatedCost;
+			} else {
+				const pricing = this.modelPricing[usage.model] || this.getDefaultPricing();
+				const promptCost = (usage.promptTokens / 1000) * pricing.prompt;
+				const completionCost = (usage.completionTokens / 1000) * pricing.completion;
+				summary.estimatedCost += promptCost + completionCost;
+			}
 
 			// Track daily usage
 			const date = usage.timestamp.toISOString().split("T")[0];
-			summary.dailyUsage[date] =
-				(summary.dailyUsage[date] || 0) + usage.totalTokens;
+			summary.dailyUsage[date] = (summary.dailyUsage[date] || 0) + usage.totalTokens;
 		}
+
+		// Calculate average duration if we have duration data
+		if (countWithDuration > 0) {
+			summary.avgRequestDuration = totalDuration / countWithDuration;
+		}
+		
+		// Calculate error rate
+		summary.errorRate = this.tokenUsage.length > 0 
+			? (summary.errorCount / this.tokenUsage.length) * 100 
+			: 0;
 
 		return summary;
 	}
@@ -328,6 +545,146 @@ export class Telemetry {
 			(usage) => usage.timestamp >= startTime && usage.timestamp <= endTime,
 		);
 	}
+	
+	/**
+	 * Start recording an API call - returns a request ID to use with finishRecording
+	 */
+	public startRecording(
+		model: string, 
+		operation: string,
+		options?: {
+			isStreaming?: boolean;
+			editMode?: boolean;
+			requestPayload?: unknown;
+		}
+	): string {
+		const requestId = this.generateRequestId();
+		
+		if (this.debugMode && options?.requestPayload) {
+			logger.debug(`Starting API call ${requestId}`, { 
+				model, 
+				operation, 
+				payload: options.requestPayload 
+			});
+		}
+		
+		// Start tracking the request in memory, even if we're not fully enabled yet
+		// This allows us to capture timing information accurately
+		const startTime = Date.now();
+		
+		// Store in memory with a weak map to avoid cluttering the actual telemetry records
+		this.activeRequests.set(requestId, {
+			startTime,
+			model,
+			operation,
+			isStreaming: options?.isStreaming ?? false,
+			editMode: options?.editMode ?? false,
+			requestPayload: this.debugMode && options?.requestPayload 
+				? JSON.stringify(options.requestPayload) 
+				: undefined
+		});
+		
+		return requestId;
+	}
+	
+	/**
+	 * Finish recording an API call and save the telemetry data
+	 */
+	public finishRecording(
+		requestId: string,
+		result: {
+			promptTokens: number;
+			completionTokens: number;
+			totalTokens?: number;
+			error?: Error;
+			response?: unknown;
+		}
+	): void {
+		if (!this.enabled && !this.activeRequests.has(requestId)) {
+			return;
+		}
+		
+		const endTime = Date.now();
+		const requestInfo = this.activeRequests.get(requestId);
+		
+		if (!requestInfo) {
+			logger.warn(`No request found with ID ${requestId}`);
+			return;
+		}
+		
+		// Remove from active requests
+		this.activeRequests.delete(requestId);
+		
+		const totalTokens = result.totalTokens ?? (result.promptTokens + result.completionTokens);
+		
+		// Calculate the cost
+		const pricing = this.modelPricing[requestInfo.model] || this.getDefaultPricing();
+		const estimatedCost = 
+			(result.promptTokens / 1000) * pricing.prompt + 
+			(result.completionTokens / 1000) * pricing.completion;
+		
+		const hasError = !!result.error;
+		
+		// Log the result
+		if (this.debugMode) {
+			if (hasError) {
+				logger.warn(`API call ${requestId} failed after ${endTime - requestInfo.startTime}ms`, {
+					error: result.error,
+					model: requestInfo.model,
+					operation: requestInfo.operation,
+					tokens: totalTokens
+				});
+			} else {
+				logger.debug(`API call ${requestId} completed in ${endTime - requestInfo.startTime}ms`, {
+					model: requestInfo.model,
+					operation: requestInfo.operation,
+					tokens: totalTokens,
+					response: result.response
+				});
+			}
+		}
+		
+		// Record the full telemetry
+		this.recordTokenUsage({
+			// Token counts
+			promptTokens: result.promptTokens,
+			completionTokens: result.completionTokens,
+			totalTokens,
+			
+			// Request metadata
+			model: requestInfo.model,
+			operation: requestInfo.operation,
+			editMode: requestInfo.editMode,
+			isStreaming: requestInfo.isStreaming,
+			
+			// Performance metrics
+			startTime: requestInfo.startTime,
+			endTime,
+			duration: endTime - requestInfo.startTime,
+			
+			// Error tracking
+			hasError,
+			errorType: hasError ? result.error?.name : undefined,
+			errorMessage: hasError ? result.error?.message : undefined,
+			
+			// Cost metrics
+			estimatedCost,
+			
+			// Request debugging
+			requestId,
+			requestPayload: requestInfo.requestPayload
+		});
+	}
+	
+	// Track active requests
+	private activeRequests = new Map<string, {
+		startTime: number;
+		model: string;
+		operation: string;
+		isStreaming?: boolean;
+		editMode?: boolean;
+		requestPayload?: string;
+	}>();
 }
 
 export const telemetry = Telemetry.getInstance();

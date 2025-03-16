@@ -170,6 +170,25 @@ export class AuraliteSettingsTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					}),
 			);
+			
+		// Add debug mode toggle (hidden behind advanced settings)
+		const advancedSection = telemetrySection.createEl("details");
+		advancedSection.createEl("summary", { 
+			text: "Advanced Settings",
+			cls: "telemetry-advanced-toggle" 
+		});
+		
+		new Setting(advancedSection)
+			.setName("Debug Mode")
+			.setDesc("Enable detailed request/response logging for debugging (developer use only)")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(false) // Always default to false
+					.onChange((value) => {
+						// Don't persist this setting, it's for debugging only
+						this.plugin.toggleTelemetryDebugMode(value);
+					}),
+			);
 
 		// Add button to view telemetry data
 		new Setting(telemetrySection)

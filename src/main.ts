@@ -269,6 +269,13 @@ export default class AuralitePlugin extends Plugin {
 		telemetry.setEnabled(enabled);
 		this.settings.TELEMETRY_ENABLED = enabled;
 	}
+	
+	/**
+	 * Enable or disable telemetry debug mode (detailed request/response logging)
+	 */
+	public toggleTelemetryDebugMode(enabled: boolean): void {
+		telemetry.setDebugMode(enabled);
+	}
 
 	/**
 	 * Show the telemetry modal with usage statistics
