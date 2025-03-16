@@ -8,7 +8,9 @@ import type { ChatCompletionMessageParam } from "openai/resources";
 import type { Stream } from "openai/streaming";
 import { z } from "zod";
 import type { ContextBuilder } from "./ContextBuilder";
+import { hasUsage, isActionResponse } from "./api_types";
 import { logger } from "./logging";
+import { telemetry } from "./telemetry";
 import { TypedEvents } from "./types/TypedEvents";
 
 interface AIManagerEvents {
@@ -56,6 +58,17 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 				},
 				{ signal: this.abortController.signal },
 			);
+
+			// Record transcription usage (estimate based on text length since Whisper API doesn't provide token counts)
+			const estimatedTokens = Math.ceil(response.text.length / 4); // ~4 chars per token as a rough estimate
+			telemetry.recordTokenUsage({
+				promptTokens: 0, // Whisper doesn't have prompt tokens
+				completionTokens: estimatedTokens,
+				totalTokens: estimatedTokens,
+				model: "whisper-1",
+				operation: "transcription",
+				editMode: false,
+			});
 
 			this.trigger("transcriptionComplete", response.text);
 
@@ -140,37 +153,40 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 					),
 			});
 
-			const actionResult = await this.createInstructorChatCompletion(
-				actionSchema,
-				[
-					{
-						role: "system",
-						content: "You are an assistant that can execute actions",
-					},
-					{
-						role: "user",
-						content: userInput,
-					},
-				],
-			);
+			const response = await this.createInstructorChatCompletion(actionSchema, [
+				{
+					role: "system",
+					content: "You are an assistant that can execute actions",
+				},
+				{
+					role: "user",
+					content: userInput,
+				},
+			]);
 
-			this.trigger(
-				"actionPlanned",
-				actionResult.action,
-				actionResult.necessaryContexts ?? [],
-			);
-
-			const input = new Map();
-
-			const necessaryContexts = actionResult.necessaryContexts ?? [];
-			const validContexts = necessaryContexts.filter(
-				(context) => context in editorState,
-			);
-
-			for (const context of validContexts) {
-				input.set(context, editorState[context]);
+			// Ensure response is an ActionResponse
+			if (!isActionResponse(response)) {
+				throw new Error("Invalid action response format");
 			}
 
+			const actionResult = response;
+			const necessaryContexts = actionResult.necessaryContexts ?? [];
+
+			this.trigger("actionPlanned", actionResult.action, necessaryContexts);
+
+			const input = new Map<string, unknown>();
+
+			// Filter contexts to those present in editorState
+			const validContextKeys = necessaryContexts.filter(
+				(key) => key in editorState,
+			) as Array<keyof Partial<EditorState>>;
+
+			// Add contexts to input
+			for (const key of validContextKeys) {
+				input.set(key, editorState[key]);
+			}
+
+			// Add additional inputs
 			input.set("action", actionResult.action);
 			input.set(
 				"actionDescription",
@@ -185,6 +201,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 
 			logger.debug("input", { input });
 
+			// Execute the action
 			this.trigger("actionExecutionStarted", actionResult.action);
 			await this.executeAction(actionResult.action, input, editorState);
 			this.trigger("actionExecutionComplete", actionResult.action);
@@ -215,6 +232,19 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 				},
 				{ signal: this.abortController.signal },
 			);
+
+			// Record token usage if available
+			// Need to use type assertion since the Instructor response type doesn't expose usage data
+			if (hasUsage(response)) {
+				telemetry.recordTokenUsage({
+					promptTokens: response.usage.prompt_tokens,
+					completionTokens: response.usage.completion_tokens,
+					totalTokens: response.usage.total_tokens,
+					model: this.plugin.settings.OPENAI_MODEL,
+					operation: "instructor_completion",
+					editMode: false,
+				});
+			}
 
 			return response;
 		} catch (error: unknown) {
@@ -294,17 +324,45 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 					},
 				};
 
-				return await this.oai.chat.completions.create(
+				const response = await this.oai.chat.completions.create(
 					optionsWithPrediction as unknown as OpenAI.ChatCompletionCreateParams,
 					{ signal: this.abortController.signal },
 				);
+
+				// Record token usage if available
+				if (hasUsage(response)) {
+					telemetry.recordTokenUsage({
+						promptTokens: response.usage.prompt_tokens,
+						completionTokens: response.usage.completion_tokens,
+						totalTokens: response.usage.total_tokens,
+						model: this.plugin.settings.OPENAI_MODEL,
+						operation: "chat_completion",
+						editMode: true,
+					});
+				}
+
+				return response;
 			}
 
 			// Standard mode without prediction
-			return await this.oai.chat.completions.create(
+			const response = await this.oai.chat.completions.create(
 				baseOptions as OpenAI.ChatCompletionCreateParams,
 				{ signal: this.abortController.signal },
 			);
+
+			// Record token usage
+			if (hasUsage(response)) {
+				telemetry.recordTokenUsage({
+					promptTokens: response.usage.prompt_tokens,
+					completionTokens: response.usage.completion_tokens,
+					totalTokens: response.usage.total_tokens,
+					model: this.plugin.settings.OPENAI_MODEL,
+					operation: "chat_completion",
+					editMode: false,
+				});
+			}
+
+			return response;
 		} catch (error) {
 			if (error instanceof Error && error.name === "AbortError") {
 				logger.error("Chat completion was cancelled", { error });
@@ -321,6 +379,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 	) {
 		this.abortController = new AbortController();
 		try {
+			// Stream mode doesn't provide token usage information
 			return await this.oai.chat.completions.create(
 				{
 					messages,
