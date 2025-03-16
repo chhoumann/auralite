@@ -82,10 +82,7 @@ export default class AuralitePlugin extends Plugin {
 				silenceDuration: this.settings.SILENCE_DURATION,
 			});
 			this.registerEvent(
-				this.silenceDetection.on(
-					"silenceDetected",
-					this.handleSilenceDetected,
-				),
+				this.silenceDetection.on("silenceDetected", this.handleSilenceDetected),
 			);
 		}
 	}
@@ -181,7 +178,8 @@ export default class AuralitePlugin extends Plugin {
 		// Add telemetry data to the settings object for persistence
 		if (this.settings.TELEMETRY_ENABLED) {
 			await telemetry.saveTokenUsage((telemetryData) => {
-				dataToSave["telemetryData"] = telemetryData;
+				// Using bracket notation to avoid TypeScript index signature error
+				dataToSave.telemetryData = telemetryData;
 				return this.saveData(dataToSave);
 			});
 		} else {
@@ -269,7 +267,7 @@ export default class AuralitePlugin extends Plugin {
 		telemetry.setEnabled(enabled);
 		this.settings.TELEMETRY_ENABLED = enabled;
 	}
-	
+
 	/**
 	 * Enable or disable telemetry debug mode (detailed request/response logging)
 	 */

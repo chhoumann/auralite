@@ -2,7 +2,13 @@ import { Modal, Notice } from "obsidian";
 import { type TimePeriodUsage, telemetry } from "./telemetry";
 
 export class TelemetryModal extends Modal {
-	private currentView: "summary" | "daily" | "weekly" | "monthly" | "performance" | "errors" = "summary";
+	private currentView:
+		| "summary"
+		| "daily"
+		| "weekly"
+		| "monthly"
+		| "performance"
+		| "errors" = "summary";
 
 	override onOpen() {
 		this.renderView();
@@ -15,6 +21,12 @@ export class TelemetryModal extends Modal {
 		// Modal title and navigation
 		contentEl.createEl("h2", { text: "Token Usage Statistics" });
 
+		// Add disclaimer about estimation accuracy
+		contentEl.createEl("p", {
+			text: "Note: Token counts and costs are estimates and may not exactly match OpenAI billing.",
+			cls: "telemetry-disclaimer",
+		});
+
 		// Add view navigation
 		const navDiv = contentEl.createEl("div", { cls: "telemetry-nav" });
 
@@ -24,9 +36,9 @@ export class TelemetryModal extends Modal {
 			{ id: "weekly", label: "Weekly" },
 			{ id: "monthly", label: "Monthly" },
 			{ id: "performance", label: "Performance" },
-			{ id: "errors", label: "Errors" }
+			{ id: "errors", label: "Errors" },
 		];
-		
+
 		for (const view of views) {
 			const button = navDiv.createEl("button", {
 				text: view.label,
@@ -293,9 +305,7 @@ export class TelemetryModal extends Modal {
 			});
 
 			// Calculate heights based on percentage of max
-			const promptHeight = maxValue
-				? (item.promptTokens / maxValue) * 100
-				: 0;
+			const promptHeight = maxValue ? (item.promptTokens / maxValue) * 100 : 0;
 			const completionHeight = maxValue
 				? (item.completionTokens / maxValue) * 100
 				: 0;
@@ -361,10 +371,7 @@ export class TelemetryModal extends Modal {
 		}
 		// Format: YYYY-MM
 		const [year, month] = period.split("-");
-		const date = new Date(
-			Number.parseInt(year),
-			Number.parseInt(month) - 1,
-		);
+		const date = new Date(Number.parseInt(year), Number.parseInt(month) - 1);
 		if (short) {
 			return date.toLocaleDateString(undefined, { month: "short" });
 		}
@@ -406,11 +413,7 @@ export class TelemetryModal extends Modal {
 		contentEl.empty();
 	}
 
-	private addTableRow(
-		table: HTMLTableElement,
-		key: string,
-		value: string,
-	) {
+	private addTableRow(table: HTMLTableElement, key: string, value: string) {
 		const row = table.createEl("tr");
 		row.createEl("td", { text: key });
 		row.createEl("td", { text: value });
@@ -420,46 +423,76 @@ export class TelemetryModal extends Modal {
 	private renderPerformanceView(contentEl: HTMLElement) {
 		const summary = telemetry.getUsageSummary();
 		const hasData = telemetry.getTokenUsage().length > 0;
-		
+
 		if (!hasData) {
 			contentEl.createEl("p", {
 				text: "No performance data available.",
-				cls: "telemetry-no-data"
+				cls: "telemetry-no-data",
 			});
 			return;
 		}
-		
+
 		// Header section
-		const perfHeader = contentEl.createEl("div", { cls: "telemetry-perf-header" });
+		const perfHeader = contentEl.createEl("div", {
+			cls: "telemetry-perf-header",
+		});
 		perfHeader.createEl("h3", { text: "Request Performance" });
-		
+
 		// Overall metrics
-		const overallSection = contentEl.createEl("div", { cls: "telemetry-perf-overall" });
+		const overallSection = contentEl.createEl("div", {
+			cls: "telemetry-perf-overall",
+		});
 		const overallTable = overallSection.createEl("table");
-		
+
 		// Add overall metrics
-		this.addTableRow(overallTable, "Total Requests", 
-			(summary.streamingCount + summary.nonStreamingCount).toString());
-		this.addTableRow(overallTable, "Streaming Requests", summary.streamingCount.toString());
-		this.addTableRow(overallTable, "Non-Streaming Requests", summary.nonStreamingCount.toString());
-		
+		this.addTableRow(
+			overallTable,
+			"Total Requests",
+			(summary.streamingCount + summary.nonStreamingCount).toString(),
+		);
+		this.addTableRow(
+			overallTable,
+			"Streaming Requests",
+			summary.streamingCount.toString(),
+		);
+		this.addTableRow(
+			overallTable,
+			"Non-Streaming Requests",
+			summary.nonStreamingCount.toString(),
+		);
+
 		if (summary.avgRequestDuration !== undefined) {
-			this.addTableRow(overallTable, "Average Duration", 
-				`${Math.round(summary.avgRequestDuration)}ms`);
-			
-			this.addTableRow(overallTable, "Min Duration", 
-				`${Math.round(summary.minRequestDuration || 0)}ms`);
-				
-			this.addTableRow(overallTable, "Max Duration", 
-				`${Math.round(summary.maxRequestDuration || 0)}ms`);
+			this.addTableRow(
+				overallTable,
+				"Average Duration",
+				`${Math.round(summary.avgRequestDuration)}ms`,
+			);
+
+			this.addTableRow(
+				overallTable,
+				"Min Duration",
+				`${Math.round(summary.minRequestDuration || 0)}ms`,
+			);
+
+			this.addTableRow(
+				overallTable,
+				"Max Duration",
+				`${Math.round(summary.maxRequestDuration || 0)}ms`,
+			);
 		} else {
-			this.addTableRow(overallTable, "Performance Data", "No duration data available");
+			this.addTableRow(
+				overallTable,
+				"Performance Data",
+				"No duration data available",
+			);
 		}
-		
+
 		// Per-model performance
-		const modelsSection = contentEl.createEl("div", { cls: "telemetry-perf-models" });
+		const modelsSection = contentEl.createEl("div", {
+			cls: "telemetry-perf-models",
+		});
 		modelsSection.createEl("h3", { text: "Performance by Model" });
-		
+
 		const modelsTable = modelsSection.createEl("table");
 		const modelHeaderRow = modelsTable.createEl("tr");
 		modelHeaderRow.createEl("th", { text: "Model" });
@@ -467,44 +500,51 @@ export class TelemetryModal extends Modal {
 		modelHeaderRow.createEl("th", { text: "Avg. Tokens" });
 		modelHeaderRow.createEl("th", { text: "Avg. Duration" });
 		modelHeaderRow.createEl("th", { text: "Tokens/Second" });
-		
+
 		// Add model performance rows
 		for (const model in summary.usageByModel) {
 			const stats = summary.usageByModel[model];
 			const modelRow = modelsTable.createEl("tr");
-			
+
 			modelRow.createEl("td", { text: model });
 			modelRow.createEl("td", { text: stats.requestCount.toString() });
-			
+
 			// Calculate average tokens per request
-			const avgTokens = stats.requestCount > 0 
-				? Math.round(stats.totalTokens / stats.requestCount) 
-				: 0;
+			const avgTokens =
+				stats.requestCount > 0
+					? Math.round(stats.totalTokens / stats.requestCount)
+					: 0;
 			modelRow.createEl("td", { text: avgTokens.toString() });
-			
+
 			// Duration data
 			if (stats.avgDuration !== undefined) {
 				modelRow.createEl("td", { text: `${Math.round(stats.avgDuration)}ms` });
-				
+
 				// Calculate throughput (tokens per second)
-				const tokensPerSecond = stats.avgDuration > 0 
-					? Math.round((avgTokens / stats.avgDuration) * 1000) 
-					: 0;
+				const tokensPerSecond =
+					stats.avgDuration > 0
+						? Math.round((avgTokens / stats.avgDuration) * 1000)
+						: 0;
 				modelRow.createEl("td", { text: tokensPerSecond.toString() });
 			} else {
 				modelRow.createEl("td", { text: "N/A" });
 				modelRow.createEl("td", { text: "N/A" });
 			}
 		}
-		
+
 		// Recent requests with performance data
-		const recentSection = contentEl.createEl("div", { cls: "telemetry-perf-recent" });
+		const recentSection = contentEl.createEl("div", {
+			cls: "telemetry-perf-recent",
+		});
 		recentSection.createEl("h3", { text: "Recent Requests" });
-		
-		const recentRequests = telemetry.getRecentTokenUsage(10)
-			.filter(usage => usage.duration !== undefined)
-			.sort((a, b) => (b.timestamp?.getTime() || 0) - (a.timestamp?.getTime() || 0));
-		
+
+		const recentRequests = telemetry
+			.getRecentTokenUsage(10)
+			.filter((usage) => usage.duration !== undefined)
+			.sort(
+				(a, b) => (b.timestamp?.getTime() || 0) - (a.timestamp?.getTime() || 0),
+			);
+
 		if (recentRequests.length > 0) {
 			const recentTable = recentSection.createEl("table");
 			const recentHeader = recentTable.createEl("tr");
@@ -514,7 +554,7 @@ export class TelemetryModal extends Modal {
 			recentHeader.createEl("th", { text: "Tokens" });
 			recentHeader.createEl("th", { text: "Duration" });
 			recentHeader.createEl("th", { text: "Tokens/Second" });
-			
+
 			for (const req of recentRequests) {
 				const row = recentTable.createEl("tr");
 				row.createEl("td", { text: this.formatTime(req.timestamp) });
@@ -522,74 +562,98 @@ export class TelemetryModal extends Modal {
 				row.createEl("td", { text: req.operation });
 				row.createEl("td", { text: req.totalTokens.toString() });
 				row.createEl("td", { text: `${req.duration}ms` });
-				
+
 				// Calculate throughput
-				const tokensPerSecond = req.duration && req.duration > 0 
-					? Math.round((req.totalTokens / req.duration) * 1000) 
-					: 0;
+				const tokensPerSecond =
+					req.duration && req.duration > 0
+						? Math.round((req.totalTokens / req.duration) * 1000)
+						: 0;
 				row.createEl("td", { text: tokensPerSecond.toString() });
 			}
 		} else {
-			recentSection.createEl("p", { text: "No recent performance data available" });
+			recentSection.createEl("p", {
+				text: "No recent performance data available",
+			});
 		}
 	}
-	
+
 	private renderErrorsView(contentEl: HTMLElement) {
 		const summary = telemetry.getUsageSummary();
 		const hasData = telemetry.getTokenUsage().length > 0;
-		
+
 		if (!hasData || summary.errorCount === 0) {
 			contentEl.createEl("p", {
 				text: "No error data available.",
-				cls: "telemetry-no-data"
+				cls: "telemetry-no-data",
 			});
 			return;
 		}
-		
+
 		// Header section
-		const errorHeader = contentEl.createEl("div", { cls: "telemetry-error-header" });
+		const errorHeader = contentEl.createEl("div", {
+			cls: "telemetry-error-header",
+		});
 		errorHeader.createEl("h3", { text: "Error Statistics" });
-		
+
 		// Overall metrics
-		const overallSection = contentEl.createEl("div", { cls: "telemetry-error-overall" });
+		const overallSection = contentEl.createEl("div", {
+			cls: "telemetry-error-overall",
+		});
 		const overallTable = overallSection.createEl("table");
-		
+
 		// Add overall metrics
-		this.addTableRow(overallTable, "Total Requests", 
-			(summary.streamingCount + summary.nonStreamingCount).toString());
-		this.addTableRow(overallTable, "Failed Requests", summary.errorCount.toString());
-		this.addTableRow(overallTable, "Error Rate", 
-			`${summary.errorRate.toFixed(2)}%`);
-			
+		this.addTableRow(
+			overallTable,
+			"Total Requests",
+			(summary.streamingCount + summary.nonStreamingCount).toString(),
+		);
+		this.addTableRow(
+			overallTable,
+			"Failed Requests",
+			summary.errorCount.toString(),
+		);
+		this.addTableRow(
+			overallTable,
+			"Error Rate",
+			`${summary.errorRate.toFixed(2)}%`,
+		);
+
 		// Error types
-		const typesSection = contentEl.createEl("div", { cls: "telemetry-error-types" });
+		const typesSection = contentEl.createEl("div", {
+			cls: "telemetry-error-types",
+		});
 		typesSection.createEl("h3", { text: "Errors by Type" });
-		
+
 		const typesTable = typesSection.createEl("table");
 		const typeHeader = typesTable.createEl("tr");
 		typeHeader.createEl("th", { text: "Error Type" });
 		typeHeader.createEl("th", { text: "Count" });
 		typeHeader.createEl("th", { text: "Percentage" });
-		
+
 		// Add error type rows
 		for (const errorType in summary.errorsByType) {
 			const count = summary.errorsByType[errorType];
 			const row = typesTable.createEl("tr");
 			row.createEl("td", { text: errorType });
 			row.createEl("td", { text: count.toString() });
-			row.createEl("td", { 
-				text: `${((count / summary.errorCount) * 100).toFixed(1)}%` 
+			row.createEl("td", {
+				text: `${((count / summary.errorCount) * 100).toFixed(1)}%`,
 			});
 		}
-		
+
 		// Recent errors
-		const recentSection = contentEl.createEl("div", { cls: "telemetry-error-recent" });
+		const recentSection = contentEl.createEl("div", {
+			cls: "telemetry-error-recent",
+		});
 		recentSection.createEl("h3", { text: "Recent Errors" });
-		
-		const recentErrors = telemetry.getRecentTokenUsage(20)
-			.filter(usage => usage.hasError)
-			.sort((a, b) => (b.timestamp?.getTime() || 0) - (a.timestamp?.getTime() || 0));
-		
+
+		const recentErrors = telemetry
+			.getRecentTokenUsage(20)
+			.filter((usage) => usage.hasError)
+			.sort(
+				(a, b) => (b.timestamp?.getTime() || 0) - (a.timestamp?.getTime() || 0),
+			);
+
 		if (recentErrors.length > 0) {
 			const recentTable = recentSection.createEl("table");
 			const recentHeader = recentTable.createEl("tr");
@@ -598,7 +662,7 @@ export class TelemetryModal extends Modal {
 			recentHeader.createEl("th", { text: "Operation" });
 			recentHeader.createEl("th", { text: "Error Type" });
 			recentHeader.createEl("th", { text: "Error Message" });
-			
+
 			for (const error of recentErrors) {
 				const row = recentTable.createEl("tr");
 				row.createEl("td", { text: this.formatTime(error.timestamp) });
@@ -611,7 +675,7 @@ export class TelemetryModal extends Modal {
 			recentSection.createEl("p", { text: "No recent errors available" });
 		}
 	}
-	
+
 	private formatTime(date: Date): string {
 		return date.toLocaleTimeString([], {
 			hour: "2-digit",
