@@ -8,7 +8,9 @@ import type { ChatCompletionMessageParam } from "openai/resources";
 import type { Stream } from "openai/streaming";
 import { z } from "zod";
 import type { ContextBuilder } from "./ContextBuilder";
+import { hasUsage, isActionResponse } from "./api_types";
 import { logger } from "./logging";
+import { telemetry } from "./telemetry";
 import { TypedEvents } from "./types/TypedEvents";
 
 interface AIManagerEvents {
@@ -48,6 +50,9 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 	}): Promise<string> {
 		this.abortController = new AbortController();
 
+		// Start recording telemetry
+		const requestId = telemetry.startRecording("whisper-1", "transcription");
+
 		try {
 			const response = await this.oai.audio.transcriptions.create(
 				{
@@ -57,14 +62,34 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 				{ signal: this.abortController.signal },
 			);
 
+			// Record transcription usage (estimate based on text length since Whisper API doesn't provide token counts)
+			const estimatedTokens = Math.ceil(response.text.length / 4); // ~4 chars per token as a rough estimate
+
+			// Finish recording telemetry
+			telemetry.finishRecording(requestId, {
+				promptTokens: 0, // Whisper doesn't have prompt tokens
+				completionTokens: estimatedTokens,
+				response: response,
+			});
+
 			this.trigger("transcriptionComplete", response.text);
 
 			return response.text;
 		} catch (error: unknown) {
-			if (error instanceof Error && error.name === "AbortError") {
-				logger.error("Audio transcription was cancelled", { error });
-				throw new Error("Audio transcription cancelled");
+			// Record error in telemetry
+			if (error instanceof Error) {
+				telemetry.finishRecording(requestId, {
+					promptTokens: 0,
+					completionTokens: 0,
+					error: error,
+				});
+
+				if (error.name === "AbortError") {
+					logger.error("Audio transcription was cancelled", { error });
+					throw new Error("Audio transcription cancelled");
+				}
 			}
+
 			logger.error("Error transcribing audio", { error });
 			throw new Error("Failed to transcribe audio");
 		}
@@ -92,6 +117,15 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 
 	async run(userInput: string, editorState: Partial<EditorState>) {
 		this.trigger("processingStarted");
+
+		// Track the entire operation in telemetry
+		const runRequestId = telemetry.startRecording(
+			this.plugin.settings.OPENAI_MODEL,
+			"run_operation",
+			{
+				requestPayload: telemetry.isDebugMode() ? { userInput } : undefined,
+			},
+		);
 
 		try {
 			const actionsList = this.actionIds.map(
@@ -140,37 +174,40 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 					),
 			});
 
-			const actionResult = await this.createInstructorChatCompletion(
-				actionSchema,
-				[
-					{
-						role: "system",
-						content: "You are an assistant that can execute actions",
-					},
-					{
-						role: "user",
-						content: userInput,
-					},
-				],
-			);
+			const response = await this.createInstructorChatCompletion(actionSchema, [
+				{
+					role: "system",
+					content: "You are an assistant that can execute actions",
+				},
+				{
+					role: "user",
+					content: userInput,
+				},
+			]);
 
-			this.trigger(
-				"actionPlanned",
-				actionResult.action,
-				actionResult.necessaryContexts ?? [],
-			);
-
-			const input = new Map();
-
-			const necessaryContexts = actionResult.necessaryContexts ?? [];
-			const validContexts = necessaryContexts.filter(
-				(context) => context in editorState,
-			);
-
-			for (const context of validContexts) {
-				input.set(context, editorState[context]);
+			// Ensure response is an ActionResponse
+			if (!isActionResponse(response)) {
+				throw new Error("Invalid action response format");
 			}
 
+			const actionResult = response;
+			const necessaryContexts = actionResult.necessaryContexts ?? [];
+
+			this.trigger("actionPlanned", actionResult.action, necessaryContexts);
+
+			const input = new Map<string, unknown>();
+
+			// Filter contexts to those present in editorState
+			const validContextKeys = necessaryContexts.filter(
+				(key) => key in editorState,
+			) as Array<keyof Partial<EditorState>>;
+
+			// Add contexts to input
+			for (const key of validContextKeys) {
+				input.set(key, editorState[key]);
+			}
+
+			// Add additional inputs
 			input.set("action", actionResult.action);
 			input.set(
 				"actionDescription",
@@ -185,12 +222,37 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 
 			logger.debug("input", { input });
 
+			// Execute the action
 			this.trigger("actionExecutionStarted", actionResult.action);
 			await this.executeAction(actionResult.action, input, editorState);
 			this.trigger("actionExecutionComplete", actionResult.action);
 
+			// Record successful completion of the entire run operation
+			// We'll collect telemetry from the context results
+			telemetry.finishRecording(runRequestId, {
+				promptTokens: telemetry.estimateTokenCount(userInput),
+				completionTokens: telemetry.estimateTokenCount(
+					JSON.stringify(Object.fromEntries(input)),
+				),
+				response: telemetry.isDebugMode()
+					? {
+							action: actionResult.action,
+							contexts: necessaryContexts,
+						}
+					: undefined,
+			});
+
 			this.trigger("processingComplete");
 		} catch (error) {
+			// Record error in run operation telemetry
+			if (error instanceof Error) {
+				telemetry.finishRecording(runRequestId, {
+					promptTokens: telemetry.estimateTokenCount(userInput),
+					completionTokens: 0,
+					error: error,
+				});
+			}
+
 			this.trigger(
 				"error",
 				error instanceof Error ? error : new Error(String(error)),
@@ -203,6 +265,16 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 		messages: Array<ChatCompletionMessageParam>,
 	) {
 		this.abortController = new AbortController();
+
+		// Start recording telemetry
+		const requestId = telemetry.startRecording(
+			this.plugin.settings.OPENAI_MODEL,
+			"instructor_completion",
+			{
+				requestPayload: { messages, schema: schema.description },
+			},
+		);
+
 		try {
 			const response = await this.instructorClient.chat.completions.create(
 				{
@@ -216,12 +288,44 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 				{ signal: this.abortController.signal },
 			);
 
+			// Record token usage if available
+			if (hasUsage(response)) {
+				telemetry.finishRecording(requestId, {
+					promptTokens: response.usage.prompt_tokens,
+					completionTokens: response.usage.completion_tokens,
+					totalTokens: response.usage.total_tokens,
+					response: telemetry.isDebugMode() ? response : undefined,
+				});
+			} else {
+				// If usage info isn't available, estimate from the messages and response
+				const promptText = JSON.stringify(messages);
+				const responseText = JSON.stringify(response);
+				const promptTokens = telemetry.estimateTokenCount(promptText);
+				const completionTokens = telemetry.estimateTokenCount(responseText);
+
+				telemetry.finishRecording(requestId, {
+					promptTokens,
+					completionTokens,
+					response: telemetry.isDebugMode() ? response : undefined,
+				});
+			}
+
 			return response;
 		} catch (error: unknown) {
-			if (error instanceof Error && error.name === "AbortError") {
-				logger.error("Chat completion was cancelled", { error });
-				throw new Error("Chat completion cancelled");
+			if (error instanceof Error) {
+				// Record the error in telemetry
+				telemetry.finishRecording(requestId, {
+					promptTokens: telemetry.estimateTokenCount(JSON.stringify(messages)),
+					completionTokens: 0,
+					error: error,
+				});
+
+				if (error.name === "AbortError") {
+					logger.error("Chat completion was cancelled", { error });
+					throw new Error("Chat completion cancelled");
+				}
 			}
+
 			logger.error("Error creating chat completion", { error });
 			throw new Error("Failed to create chat completion");
 		}
@@ -232,27 +336,71 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 		messages: Array<ChatCompletionMessageParam>,
 	): Promise<Stream<z.infer<TSchema>>> {
 		this.abortController = new AbortController();
-		try {
-			const stream = await this.instructorClient.chat.completions.create(
-				{
-					messages,
-					model: this.plugin.settings.OPENAI_MODEL,
-					response_model: {
-						schema: schema,
-						name: "User",
-					},
-					stream: true,
-				},
-				{ signal: this.abortController.signal },
-			);
 
-			//@ts-ignore: don't want to type this rn
-			return stream;
+		// Start recording telemetry
+		const requestId = telemetry.startRecording(
+			this.plugin.settings.OPENAI_MODEL,
+			"instructor_stream",
+			{
+				isStreaming: true,
+				requestPayload: { messages, schema: schema.description },
+			},
+		);
+
+		try {
+			// Create the original stream
+			const originalStream =
+				await this.instructorClient.chat.completions.create(
+					{
+						messages,
+						model: this.plugin.settings.OPENAI_MODEL,
+						response_model: {
+							schema: schema,
+							name: "User",
+						},
+						stream: true,
+					},
+					{ signal: this.abortController.signal },
+				);
+
+			// Since the stream implementation is causing TypeScript issues,
+			// we'll just return the original stream and handle telemetry separately
+			// in the user class that consumes this stream
+
+			// Schedule telemetry recording for after stream completes
+			// This is a reasonable compromise rather than wrapping the stream
+			setTimeout(() => {
+				// Very crude estimate of token usage for streams
+				const promptTokens = telemetry.estimateTokenCount(
+					JSON.stringify(messages),
+				);
+				// For completions, we'll estimate based on the model (less accurate)
+				const completionTokens = Math.ceil(promptTokens * 1.5); // Rough estimate that completions are ~1.5x input size
+
+				telemetry.finishRecording(requestId, {
+					promptTokens,
+					completionTokens,
+					totalTokens: promptTokens + completionTokens,
+				});
+			}, 30000); // Wait 30 seconds to allow stream to complete
+
+			// Return the original stream without modification
+			return originalStream as unknown as Stream<z.infer<TSchema>>;
 		} catch (error: unknown) {
-			if (error instanceof Error && error.name === "AbortError") {
-				logger.error("Chat completion stream was cancelled", { error });
-				throw new Error("Chat completion stream cancelled");
+			if (error instanceof Error) {
+				// Record the error in telemetry
+				telemetry.finishRecording(requestId, {
+					promptTokens: telemetry.estimateTokenCount(JSON.stringify(messages)),
+					completionTokens: 0,
+					error: error,
+				});
+
+				if (error.name === "AbortError") {
+					logger.error("Chat completion stream was cancelled", { error });
+					throw new Error("Chat completion stream cancelled");
+				}
 			}
+
 			logger.error("Error creating chat completion stream", { error });
 			throw new Error("Failed to create chat completion stream");
 		}
@@ -265,6 +413,19 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 		fileContent?: string,
 	) {
 		this.abortController = new AbortController();
+
+		// Start recording telemetry
+		const requestId = telemetry.startRecording(
+			this.plugin.settings.OPENAI_MODEL,
+			"chat_completion",
+			{
+				editMode: useEditMode,
+				requestPayload: telemetry.isDebugMode()
+					? { messages, options }
+					: undefined,
+			},
+		);
+
 		try {
 			// Create base options
 			const baseOptions = {
@@ -294,22 +455,76 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 					},
 				};
 
-				return await this.oai.chat.completions.create(
+				const response = await this.oai.chat.completions.create(
 					optionsWithPrediction as unknown as OpenAI.ChatCompletionCreateParams,
 					{ signal: this.abortController.signal },
 				);
+
+				// Record token usage if available
+				if (hasUsage(response)) {
+					telemetry.finishRecording(requestId, {
+						promptTokens: response.usage.prompt_tokens,
+						completionTokens: response.usage.completion_tokens,
+						totalTokens: response.usage.total_tokens,
+						response: telemetry.isDebugMode() ? response : undefined,
+					});
+				} else {
+					// If usage info isn't available, estimate from the messages and response
+					const promptText = JSON.stringify(messages);
+					const responseText = JSON.stringify(response);
+
+					telemetry.finishRecording(requestId, {
+						promptTokens: telemetry.estimateTokenCount(promptText),
+						completionTokens: telemetry.estimateTokenCount(responseText),
+						response: telemetry.isDebugMode() ? response : undefined,
+					});
+				}
+
+				return response;
 			}
 
 			// Standard mode without prediction
-			return await this.oai.chat.completions.create(
+			const response = await this.oai.chat.completions.create(
 				baseOptions as OpenAI.ChatCompletionCreateParams,
 				{ signal: this.abortController.signal },
 			);
-		} catch (error) {
-			if (error instanceof Error && error.name === "AbortError") {
-				logger.error("Chat completion was cancelled", { error });
-				throw new Error("Chat completion cancelled");
+
+			// Record token usage
+			if (hasUsage(response)) {
+				telemetry.finishRecording(requestId, {
+					promptTokens: response.usage.prompt_tokens,
+					completionTokens: response.usage.completion_tokens,
+					totalTokens: response.usage.total_tokens,
+					response: telemetry.isDebugMode() ? response : undefined,
+				});
+			} else {
+				// If usage info isn't available, estimate from the messages and response
+				const promptText = JSON.stringify(messages);
+				const responseText = JSON.stringify(response);
+
+				telemetry.finishRecording(requestId, {
+					promptTokens: telemetry.estimateTokenCount(promptText),
+					completionTokens: telemetry.estimateTokenCount(responseText),
+					response: telemetry.isDebugMode() ? response : undefined,
+				});
 			}
+
+			return response;
+		} catch (error) {
+			if (error instanceof Error) {
+				// Record the error in telemetry
+				telemetry.finishRecording(requestId, {
+					promptTokens: telemetry.estimateTokenCount(JSON.stringify(messages)),
+					completionTokens: 0,
+					error: error,
+				});
+
+				if (error.name === "AbortError") {
+					logger.error("Chat completion was cancelled", { error });
+					throw new Error("Chat completion cancelled");
+				}
+			}
+
 			logger.error("Error creating chat completion", { error });
 			throw new Error("Failed to create chat completion");
 		}
@@ -320,8 +535,22 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 		options?: Partial<ClientOptions>,
 	) {
 		this.abortController = new AbortController();
+
+		// Start recording telemetry
+		const requestId = telemetry.startRecording(
+			this.plugin.settings.OPENAI_MODEL,
+			"chat_completion_stream",
+			{
+				isStreaming: true,
+				requestPayload: telemetry.isDebugMode()
+					? { messages, options }
+					: undefined,
+			},
+		);
+
 		try {
-			return await this.oai.chat.completions.create(
+			// Create the original stream
+			const stream = await this.oai.chat.completions.create(
 				{
 					messages,
 					model: this.plugin.settings.OPENAI_MODEL,
@@ -330,11 +559,45 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 				},
 				{ signal: this.abortController.signal },
 			);
+
+			// Since the stream implementation is causing TypeScript issues,
+			// we'll just return the original stream and handle telemetry separately
+			// in the user class that consumes this stream
+
+			// Schedule telemetry recording for after stream completes
+			// This is a reasonable compromise rather than wrapping the stream
+			setTimeout(() => {
+				// Very crude estimate of token usage for streams
+				const promptTokens = telemetry.estimateTokenCount(
+					JSON.stringify(messages),
+				);
+				// For completions, we'll estimate based on the model (less accurate)
+				const completionTokens = Math.ceil(promptTokens * 1.5); // Rough estimate that completions are ~1.5x input size
+
+				telemetry.finishRecording(requestId, {
+					promptTokens,
+					completionTokens,
+					totalTokens: promptTokens + completionTokens,
+				});
+			}, 30000); // Wait 30 seconds to allow stream to complete
+
+			// Return the original stream without modification
+			return stream;
 		} catch (error) {
-			if (error instanceof Error && error.name === "AbortError") {
-				logger.error("Chat completion stream was cancelled", { error });
-				throw new Error("Chat completion stream cancelled");
+			if (error instanceof Error) {
+				// Record the error in telemetry
+				telemetry.finishRecording(requestId, {
+					promptTokens: telemetry.estimateTokenCount(JSON.stringify(messages)),
+					completionTokens: 0,
+					error: error,
+				});
+
+				if (error.name === "AbortError") {
+					logger.error("Chat completion stream was cancelled", { error });
+					throw new Error("Chat completion stream cancelled");
+				}
 			}
+
 			logger.error("Error creating chat completion stream", { error });
 			throw new Error("Failed to create chat completion stream");
 		}

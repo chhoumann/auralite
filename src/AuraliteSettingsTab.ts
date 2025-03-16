@@ -12,6 +12,7 @@ export interface AuralitePluginSettings {
 	SILENCE_DURATION: number;
 	DEFAULT_NOTE_TEMPLATE_PATH: string;
 	USE_EDIT_MODE_BY_DEFAULT: boolean;
+	TELEMETRY_ENABLED: boolean;
 }
 
 export const DEFAULT_SETTINGS: AuralitePluginSettings = {
@@ -21,6 +22,7 @@ export const DEFAULT_SETTINGS: AuralitePluginSettings = {
 	SILENCE_DURATION: 2000,
 	DEFAULT_NOTE_TEMPLATE_PATH: "",
 	USE_EDIT_MODE_BY_DEFAULT: false,
+	TELEMETRY_ENABLED: true,
 };
 
 export class AuraliteSettingsTab extends PluginSettingTab {
@@ -41,6 +43,7 @@ export class AuraliteSettingsTab extends PluginSettingTab {
 		this.addSilenceDetectionSettings(containerEl);
 		this.addDefaultNoteTemplateSetting(containerEl);
 		this.addEditModeSettings(containerEl);
+		this.addTelemetrySettings(containerEl);
 	}
 
 	addOpenAIApiKeySetting(containerEl: HTMLElement) {
@@ -147,5 +150,61 @@ export class AuraliteSettingsTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					}),
 			);
+	}
+
+	addTelemetrySettings(containerEl: HTMLElement) {
+		const telemetrySection = containerEl.createEl("div");
+		telemetrySection.createEl("h3", { text: "Telemetry" });
+
+		new Setting(telemetrySection)
+			.setName("Enable Token Usage Tracking")
+			.setDesc(
+				"Track token usage for debugging and performance analysis (data stays on your device)",
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.TELEMETRY_ENABLED)
+					.onChange(async (value) => {
+						this.plugin.settings.TELEMETRY_ENABLED = value;
+						this.plugin.toggleTelemetry(value);
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		// Add debug mode toggle (hidden behind advanced settings)
+		const advancedSection = telemetrySection.createEl("details");
+		advancedSection.createEl("summary", {
+			text: "Advanced Settings",
+			cls: "telemetry-advanced-toggle",
+		});
+
+		new Setting(advancedSection)
+			.setName("Debug Mode")
+			.setDesc(
+				"Enable detailed request/response logging for debugging (developer use only)",
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(false) // Always default to false
+					.onChange((value) => {
+						// Don't persist this setting, it's for debugging only
+						this.plugin.toggleTelemetryDebugMode(value);
+					}),
+			);
+
+		// Add button to view telemetry data
+		new Setting(telemetrySection)
+			.setName("Token Usage Stats")
+			.setDesc("View token usage statistics and analytics")
+			.addButton((button) => {
+				button.setButtonText("View Stats").onClick(() => {
+					this.plugin.showTelemetryModal();
+				});
+			})
+			.addButton((button) => {
+				button.setButtonText("Clear Data").onClick(() => {
+					this.plugin.clearTelemetryData();
+				});
+			});
 	}
 }

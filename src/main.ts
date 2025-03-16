@@ -12,6 +12,7 @@ import {
 	SilenceDetection,
 	type SilenceDetectionOptions,
 } from "./SilenceDetection";
+import { TelemetryModal } from "./TelemetryModal";
 import { ActionManager } from "./actions/ActionManager";
 import { CreateNoteAction } from "./actions/CreateNoteAction";
 import { EditAction } from "./actions/EditAction";
@@ -23,6 +24,7 @@ import { registerCommands } from "./commands";
 import { logger } from "./logging";
 import { AssistantTask } from "./tasks/AssistantTask";
 import { TranscribeTask } from "./tasks/TranscribeTask";
+import { telemetry } from "./telemetry";
 
 declare const __IS_DEV__: boolean;
 
@@ -41,6 +43,9 @@ export default class AuralitePlugin extends Plugin {
 		this.setupPushToTalkEvents();
 		registerCommands(this);
 		this.addSettingTab(new AuraliteSettingsTab(this.app, this));
+
+		// Initialize telemetry based on settings
+		this.toggleTelemetry(this.settings.TELEMETRY_ENABLED);
 	}
 
 	private initializeComponents() {
@@ -138,7 +143,7 @@ export default class AuralitePlugin extends Plugin {
 		return this.currentTask;
 	}
 
-	override onunload() {
+	override async onunload() {
 		try {
 			this.cancelOngoingOperation();
 
@@ -146,17 +151,40 @@ export default class AuralitePlugin extends Plugin {
 				this.audioRecorder.cancel();
 				this.audioRecorder.teardown();
 			}
+
+			// Save telemetry data before unloading
+			if (this.settings.TELEMETRY_ENABLED) {
+				await this.saveSettings();
+			}
 		} catch (error) {
 			logger.error("Error during plugin unload", { error });
 		}
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const data = await this.loadData();
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
+
+		// Load telemetry data if available
+		if (data?.telemetryData) {
+			telemetry.loadTokenUsage(data.telemetryData);
+		}
 	}
 
 	async saveSettings() {
-		await this.saveData(this.settings);
+		// Create a copy of settings for saving
+		const dataToSave: Record<string, unknown> = { ...this.settings };
+
+		// Add telemetry data to the settings object for persistence
+		if (this.settings.TELEMETRY_ENABLED) {
+			await telemetry.saveTokenUsage((telemetryData) => {
+				// Using bracket notation to avoid TypeScript index signature error
+				dataToSave.telemetryData = telemetryData;
+				return this.saveData(dataToSave);
+			});
+		} else {
+			await this.saveData(dataToSave);
+		}
 	}
 
 	async saveTranscriptionForDev(transcription: string) {
@@ -230,5 +258,34 @@ export default class AuralitePlugin extends Plugin {
 		if (this.silenceDetection) {
 			this.silenceDetection.updateOptions(options);
 		}
+	}
+
+	/**
+	 * Enable or disable telemetry collection
+	 */
+	public toggleTelemetry(enabled: boolean): void {
+		telemetry.setEnabled(enabled);
+		this.settings.TELEMETRY_ENABLED = enabled;
+	}
+
+	/**
+	 * Enable or disable telemetry debug mode (detailed request/response logging)
+	 */
+	public toggleTelemetryDebugMode(enabled: boolean): void {
+		telemetry.setDebugMode(enabled);
+	}
+
+	/**
+	 * Show the telemetry modal with usage statistics
+	 */
+	public showTelemetryModal(): void {
+		new TelemetryModal(this.app).open();
+	}
+
+	/**
+	 * Clear all collected telemetry data
+	 */
+	public clearTelemetryData(): void {
+		telemetry.clearTokenUsage();
 	}
 }
