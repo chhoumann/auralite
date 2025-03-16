@@ -136,7 +136,9 @@ export class AuraliteSettingsTab extends PluginSettingTab {
 	addEditModeSettings(containerEl: HTMLElement) {
 		new Setting(containerEl)
 			.setName("Use Edit Mode by Default")
-			.setDesc("Use OpenAI's edit mode for faster edit operations by default. The AI will decide when to override this.")
+			.setDesc(
+				"Use OpenAI's edit mode for faster edit operations by default. The AI will decide when to override this.",
+			)
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.plugin.settings.USE_EDIT_MODE_BY_DEFAULT)

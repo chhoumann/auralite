@@ -177,7 +177,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 				this.plugin.actionManager.getAction(actionResult.action)?.description,
 			);
 			input.set("userInput", userInput);
-			
+
 			// Add edit mode flag if specified
 			if (actionResult.useEditMode !== undefined) {
 				input.set("useEditMode", actionResult.useEditMode);
@@ -266,7 +266,8 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 	) {
 		this.abortController = new AbortController();
 		try {
-			const requestOptions: any = {
+			// Create base options
+			const baseOptions = {
 				messages,
 				model: this.plugin.settings.OPENAI_MODEL,
 				...options,
@@ -274,14 +275,34 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 
 			// Add prediction for edit mode if enabled and file content is available
 			if (useEditMode && fileContent) {
-				requestOptions.prediction = {
-					content: fileContent,
-					type: "content",
+				// Custom interface to type the options properly
+				interface PredictionOptions extends Record<string, unknown> {
+					messages: Array<ChatCompletionMessageParam>;
+					model: string;
+					prediction: {
+						content: string;
+						type: string;
+					};
+				}
+
+				// Create options with prediction property
+				const optionsWithPrediction: PredictionOptions = {
+					...baseOptions,
+					prediction: {
+						content: fileContent,
+						type: "content",
+					},
 				};
+
+				return await this.oai.chat.completions.create(
+					optionsWithPrediction as unknown as OpenAI.ChatCompletionCreateParams,
+					{ signal: this.abortController.signal },
+				);
 			}
 
+			// Standard mode without prediction
 			return await this.oai.chat.completions.create(
-				requestOptions,
+				baseOptions as OpenAI.ChatCompletionCreateParams,
 				{ signal: this.abortController.signal },
 			);
 		} catch (error) {

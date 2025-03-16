@@ -1,8 +1,11 @@
-import { logger } from "@/logging";
 import { renderTemplate } from "@/TemplateEngine";
+import { logger } from "@/logging";
 import { removeWhitespace } from "@/utils";
 import { type Editor, MarkdownView, type TFile } from "obsidian";
-import type { ChatCompletion, ChatCompletionMessageParam } from "openai/resources";
+import type {
+	ChatCompletion,
+	ChatCompletionMessageParam,
+} from "openai/resources";
 import { merge } from "three-way-merge";
 import { z } from "zod";
 import { Action, type ActionContext } from "./Action";
@@ -157,7 +160,7 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 			},
 		];
 
-		logger.debug("EditAction executing", { 
+		logger.debug("EditAction executing", {
 			useEditMode,
 			messages: msgs,
 			fileContent: this.fileContent,
@@ -166,12 +169,13 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 		if (useEditMode && this.fileContent) {
 			// Use edit mode
 			const response = await context.ai.createOpenAIChatCompletion(
-				msgs, 
-				{}, 
-				true, 
-				this.fileContent
+				msgs,
+				{},
+				true,
+				this.fileContent,
 			);
-			await this.performAction(response, context);
+			// Type assertion to ensure response is treated as ChatCompletion
+			await this.performAction(response as ChatCompletion, context);
 		} else {
 			// Use standard mode (calling the parent implementation)
 			if (this.useInstructor) {
@@ -186,15 +190,18 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 						this.inputSchema,
 						msgs,
 					);
-					await this.performAction(input, context);
+					// Type assertion to match expected parameter type
+					await this.performAction(input as unknown as ChatCompletion, context);
 				}
 			} else {
 				if (this.supportsStreaming) {
-					const stream = await context.ai.createOpenAIChatCompletionStream(msgs);
+					const stream =
+						await context.ai.createOpenAIChatCompletionStream(msgs);
 					await this.performActionStream(stream, context);
 				} else {
 					const response = await context.ai.createOpenAIChatCompletion(msgs);
-					await this.performAction(response, context);
+					// Type assertion to ensure response is treated as ChatCompletion
+					await this.performAction(response as ChatCompletion, context);
 				}
 			}
 		}
