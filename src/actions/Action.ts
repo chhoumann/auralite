@@ -1,3 +1,4 @@
+import { renderTemplate } from "@/TemplateEngine";
 import type { AIManager } from "@/ai";
 import { logger } from "@/logging";
 import type AuralitePlugin from "@/main";
@@ -11,7 +12,6 @@ import type {
 } from "openai/resources";
 import type { Stream } from "openai/streaming";
 import type { z } from "zod";
-import { renderTemplate } from "@/TemplateEngine";
 
 export type EditorState = {
 	activeView: View;

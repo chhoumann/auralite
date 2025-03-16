@@ -2,12 +2,12 @@ import Instructor from "@instructor-ai/instructor";
 import { Plugin, TFile } from "obsidian";
 import OpenAI from "openai";
 import { AudioRecorder } from "./AudioRecorder";
-import { ContextBuilder } from "./ContextBuilder";
 import {
-	DEFAULT_SETTINGS,
 	type AuralitePluginSettings,
 	AuraliteSettingsTab,
+	DEFAULT_SETTINGS,
 } from "./AuraliteSettingsTab";
+import { ContextBuilder } from "./ContextBuilder";
 import {
 	SilenceDetection,
 	type SilenceDetectionOptions,

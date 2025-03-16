@@ -11,6 +11,7 @@ export interface AuralitePluginSettings {
 	SILENCE_DETECTION_ENABLED: boolean;
 	SILENCE_DURATION: number;
 	DEFAULT_NOTE_TEMPLATE_PATH: string;
+	USE_EDIT_MODE_BY_DEFAULT: boolean;
 }
 
 export const DEFAULT_SETTINGS: AuralitePluginSettings = {
@@ -19,6 +20,7 @@ export const DEFAULT_SETTINGS: AuralitePluginSettings = {
 	SILENCE_DETECTION_ENABLED: false,
 	SILENCE_DURATION: 2000,
 	DEFAULT_NOTE_TEMPLATE_PATH: "",
+	USE_EDIT_MODE_BY_DEFAULT: false,
 };
 
 export class AuraliteSettingsTab extends PluginSettingTab {
@@ -38,6 +40,7 @@ export class AuraliteSettingsTab extends PluginSettingTab {
 		this.addOpenAIModelSetting(containerEl);
 		this.addSilenceDetectionSettings(containerEl);
 		this.addDefaultNoteTemplateSetting(containerEl);
+		this.addEditModeSettings(containerEl);
 	}
 
 	addOpenAIApiKeySetting(containerEl: HTMLElement) {
@@ -125,6 +128,22 @@ export class AuraliteSettingsTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.DEFAULT_NOTE_TEMPLATE_PATH)
 					.onChange(async (value) => {
 						this.plugin.settings.DEFAULT_NOTE_TEMPLATE_PATH = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+	}
+
+	addEditModeSettings(containerEl: HTMLElement) {
+		new Setting(containerEl)
+			.setName("Use Edit Mode by Default")
+			.setDesc(
+				"Use OpenAI's edit mode for faster edit operations by default. The AI will decide when to override this.",
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.USE_EDIT_MODE_BY_DEFAULT)
+					.onChange(async (value) => {
+						this.plugin.settings.USE_EDIT_MODE_BY_DEFAULT = value;
 						await this.plugin.saveSettings();
 					}),
 			);
