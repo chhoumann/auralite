@@ -47,6 +47,17 @@ const prompt = removeWhitespace(`
     It is crucial that you do not make any edits the user did not ask for.
 `);
 
+export enum EditActionStatus {
+	APPLIED = "applied",
+	REJECTED = "rejected",
+	ERROR = "error",
+}
+
+export interface EditActionResult {
+	status: EditActionStatus;
+	error?: string;
+}
+
 export class EditAction extends Action<typeof EditAction.inputSchema> {
 	readonly description: string =
 		"Edit the currently open file. Used when user asks for a specific change to be made.";
@@ -93,35 +104,57 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 	): Promise<void> {
 		const content = input.choices[0].message.content;
 		if (!content) {
+			context.results.set(this.id, {
+				status: EditActionStatus.ERROR,
+				error: "No content found",
+			});
 			throw new Error("No content found");
 		}
 
 		const updatedContent = this.extractUpdatedContent(content);
 		if (!updatedContent) {
+			context.results.set(this.id, {
+				status: EditActionStatus.ERROR,
+				error: "No updated content found",
+			});
 			throw new Error("No updated content found");
 		}
 
 		// Show diff review view and await user decision
-		await new Promise<void>((resolve, reject) => {
+		const result = await new Promise<EditActionStatus>((resolve) => {
 			const leaf = context.app.workspace.getLeaf("tab");
 			const view = new DiffReviewView(
 				leaf as WorkspaceLeaf,
 				this.fileContent ?? "",
 				updatedContent,
-				async () => {
-					try {
-						await this.applyChanges(updatedContent, context);
-						resolve();
-					} catch (e) {
-						reject(e);
-					}
+				() => {
+					// Accept: run async logic, then resolve
+					(async () => {
+						try {
+							await this.applyChanges(updatedContent, context);
+							resolve(EditActionStatus.APPLIED);
+						} catch (e) {
+							resolve(EditActionStatus.ERROR);
+						}
+					})();
 				},
 				() => {
-					reject(new Error("User rejected changes"));
+					resolve(EditActionStatus.REJECTED);
 				},
 			);
 			leaf.open(view);
 		});
+
+		if (result === EditActionStatus.APPLIED) {
+			context.results.set(this.id, { status: EditActionStatus.APPLIED });
+		} else if (result === EditActionStatus.REJECTED) {
+			context.results.set(this.id, { status: EditActionStatus.REJECTED });
+		} else {
+			context.results.set(this.id, {
+				status: EditActionStatus.ERROR,
+				error: "Failed to apply changes",
+			});
+		}
 	}
 
 	private extractUpdatedContent(responseContent: string): string | null {
