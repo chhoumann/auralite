@@ -360,6 +360,7 @@
 	color: var(--text-muted);
 	font-size: 0.97em;
 	margin-top: 0.2em;
+	margin-bottom: 0.7em;
 }
 .auralite-settings-divider {
 	border: none;
