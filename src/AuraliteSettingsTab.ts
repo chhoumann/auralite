@@ -31,6 +31,11 @@ export interface AuralitePluginSettings {
 	USE_EDIT_MODE_BY_DEFAULT: boolean;
 	TELEMETRY_ENABLED: boolean;
 	TRANSCRIPTION_MODEL: TranscriptionModel;
+	/**
+	 * Per-action model selection. Keyed by action id (e.g., "edit", "write").
+	 * If not set for an action, falls back to OPENAI_MODEL.
+	 */
+	actionModels?: Record<string, OpenAIModel>;
 }
 
 export const DEFAULT_SETTINGS: AuralitePluginSettings = {
@@ -42,6 +47,7 @@ export const DEFAULT_SETTINGS: AuralitePluginSettings = {
 	USE_EDIT_MODE_BY_DEFAULT: false,
 	TELEMETRY_ENABLED: true,
 	TRANSCRIPTION_MODEL: "whisper-1",
+	actionModels: {},
 };
 
 export class AuraliteSettingsTab extends PluginSettingTab {
@@ -60,6 +66,7 @@ export class AuraliteSettingsTab extends PluginSettingTab {
 		this.addOpenAIApiKeySetting(containerEl);
 		this.addOpenAIModelSetting(containerEl);
 		this.addTranscriptionModelSetting(containerEl);
+		this.addPerActionModelSettings(containerEl);
 		this.addSilenceDetectionSettings(containerEl);
 		this.addDefaultNoteTemplateSetting(containerEl);
 		this.addEditModeSettings(containerEl);
@@ -116,6 +123,55 @@ export class AuraliteSettingsTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					});
 			});
+	}
+
+	addPerActionModelSettings(containerEl: HTMLElement) {
+		const section = containerEl.createEl("details");
+		section.createEl("summary", {
+			text: "Advanced: Per-Action Model Selection",
+		});
+		section.createEl("div", {
+			text: "Override the LLM model for specific actions. If not set, the global model is used.",
+			cls: "setting-item-description",
+		});
+
+		const actions =
+			this.plugin.actionManager?.getAllActions?.().filter((a) => a.usesLLM) ??
+			[];
+		if (!actions.length) {
+			section.createEl("div", { text: "No actions registered yet." });
+			return;
+		}
+
+		for (const action of actions) {
+			const actionId = action.id;
+			const label = action.description || actionId;
+			new Setting(section)
+				.setName(label)
+				.setDesc(`Model for action: ${actionId}`)
+				.addDropdown((dropdown) => {
+					dropdown.addOption(
+						"",
+						`Use global model (${this.plugin.settings.OPENAI_MODEL})`,
+					);
+					for (const model of models) {
+						dropdown.addOption(model, model);
+					}
+					const current = this.plugin.settings.actionModels?.[actionId] || "";
+					dropdown.setValue(current);
+					dropdown.onChange(async (value) => {
+						if (!this.plugin.settings.actionModels)
+							this.plugin.settings.actionModels = {};
+						if (value === "") {
+							delete this.plugin.settings.actionModels[actionId];
+						} else {
+							this.plugin.settings.actionModels[actionId] =
+								value as OpenAIModel;
+						}
+						await this.plugin.saveSettings();
+					});
+				});
+		}
 	}
 
 	addSilenceDetectionSettings(containerEl: HTMLElement) {

@@ -98,6 +98,16 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 		}
 	}
 
+	/**
+	 * Get the model to use for a given action, falling back to global if not set.
+	 */
+	getModelForAction(actionId: string): string {
+		return (
+			this.plugin.settings.actionModels?.[actionId] ||
+			this.plugin.settings.OPENAI_MODEL
+		);
+	}
+
 	async executeAction(
 		action: string,
 		initialInput: Map<string, unknown>,
@@ -106,6 +116,9 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 		this.abortController = new AbortController();
 		const context = this.contextBuilder.build(this, initialInput, editorState);
 		context.abortSignal = this.abortController.signal;
+
+		// Attach the model to use for this action to the context
+		context.model = this.getModelForAction(action);
 
 		try {
 			await this.plugin.actionManager.executeAction(action, context);
@@ -262,6 +275,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 	async createInstructorChatCompletion<TSchema extends z.AnyZodObject>(
 		schema: TSchema,
 		messages: Array<ChatCompletionMessageParam>,
+		modelOverride?: string,
 	) {
 		this.abortController = new AbortController();
 
@@ -274,8 +288,9 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 		const options = {
 			requestPayload: { messages, schema: schema.description },
 		};
+		const model = modelOverride || this.plugin.settings.OPENAI_MODEL;
 		const requestId = telemetry.startRecording(
-			this.plugin.settings.OPENAI_MODEL,
+			model,
 			"instructor_completion",
 			context,
 			options,
@@ -285,7 +300,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 			const response = await this.instructorClient.chat.completions.create(
 				{
 					messages,
-					model: this.plugin.settings.OPENAI_MODEL,
+					model,
 					response_model: {
 						schema: schema,
 						name: "User",
@@ -340,6 +355,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 	async createInstructorChatCompletionStream<TSchema extends z.AnyZodObject>(
 		schema: TSchema,
 		messages: Array<ChatCompletionMessageParam>,
+		modelOverride?: string,
 	): Promise<Stream<z.infer<TSchema>>> {
 		this.abortController = new AbortController();
 
@@ -353,8 +369,9 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 			isStreaming: true,
 			requestPayload: { messages, schema: schema.description },
 		};
+		const model = modelOverride || this.plugin.settings.OPENAI_MODEL;
 		const requestId = telemetry.startRecording(
-			this.plugin.settings.OPENAI_MODEL,
+			model,
 			"instructor_stream",
 			context,
 			options,
@@ -366,7 +383,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 				await this.instructorClient.chat.completions.create(
 					{
 						messages,
-						model: this.plugin.settings.OPENAI_MODEL,
+						model,
 						response_model: {
 							schema: schema,
 							name: "User",
@@ -419,6 +436,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 		options?: Partial<ClientOptions>,
 		useEditMode: boolean = false,
 		fileContent?: string,
+		modelOverride?: string,
 	) {
 		this.abortController = new AbortController();
 
@@ -434,8 +452,9 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 				? { messages, options }
 				: undefined,
 		};
+		const model = modelOverride || this.plugin.settings.OPENAI_MODEL;
 		const requestId = telemetry.startRecording(
-			this.plugin.settings.OPENAI_MODEL,
+			model,
 			"chat_completion",
 			context,
 			telemetryOptions,
@@ -445,7 +464,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 			// Create base options
 			const baseOptions = {
 				messages,
-				model: this.plugin.settings.OPENAI_MODEL,
+				model,
 				...options,
 			};
 

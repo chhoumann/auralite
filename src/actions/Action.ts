@@ -36,10 +36,20 @@ export interface ActionContext {
 	state: {
 		editor: Partial<EditorState>;
 	};
+	/**
+	 * The model to use for this action, if overridden.
+	 */
+	model?: string;
 }
 
 export abstract class Action<TInput extends z.AnyZodObject> {
 	abstract readonly description: string;
+
+	/**
+	 * Whether this action uses an LLM (OpenAI chat/completions or Instructor).
+	 * Used to determine if per-action model selection should be shown in settings.
+	 */
+	readonly usesLLM: boolean = true;
 
 	constructor(
 		readonly id: string,

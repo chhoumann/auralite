@@ -221,6 +221,8 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 			fileContent: this.fileContent,
 		});
 
+		const model = context.model;
+
 		if (useEditMode && this.fileContent) {
 			// Use edit mode
 			const response = await context.ai.createOpenAIChatCompletion(
@@ -228,6 +230,7 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 				{},
 				true,
 				this.fileContent,
+				model,
 			);
 			// Type assertion to ensure response is treated as ChatCompletion
 			await this.performAction(response as ChatCompletion, context);
@@ -238,12 +241,14 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 					const stream = await context.ai.createInstructorChatCompletionStream(
 						this.inputSchema,
 						msgs,
+						model,
 					);
 					await this.performActionStream(stream, context);
 				} else {
 					const input = await context.ai.createInstructorChatCompletion(
 						this.inputSchema,
 						msgs,
+						model,
 					);
 					// Type assertion to match expected parameter type
 					await this.performAction(input as unknown as ChatCompletion, context);
@@ -254,7 +259,13 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 						await context.ai.createOpenAIChatCompletionStream(msgs);
 					await this.performActionStream(stream, context);
 				} else {
-					const response = await context.ai.createOpenAIChatCompletion(msgs);
+					const response = await context.ai.createOpenAIChatCompletion(
+						msgs,
+						{},
+						false,
+						undefined,
+						model,
+					);
 					// Type assertion to ensure response is treated as ChatCompletion
 					await this.performAction(response as ChatCompletion, context);
 				}
