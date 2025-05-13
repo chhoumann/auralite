@@ -50,14 +50,15 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 	}): Promise<string> {
 		this.abortController = new AbortController();
 
-		// Start recording telemetry
-		const requestId = telemetry.startRecording("whisper-1", "transcription");
+		// Use the selected transcription model from settings
+		const model = this.plugin.settings.TRANSCRIPTION_MODEL;
+		const requestId = telemetry.startRecording(model, "transcription");
 
 		try {
 			const response = await this.oai.audio.transcriptions.create(
 				{
 					file: new File([audioData.buffer], `audio.${audioData.mimeType}`),
-					model: "whisper-1",
+					model,
 				},
 				{ signal: this.abortController.signal },
 			);
@@ -67,7 +68,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 
 			// Finish recording telemetry
 			telemetry.finishRecording(requestId, {
-				promptTokens: 0, // Whisper doesn't have prompt tokens
+				promptTokens: 0, // Whisper/gpt-4o-transcribe doesn't have prompt tokens
 				completionTokens: estimatedTokens,
 				response: response,
 			});
