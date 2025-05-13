@@ -24,22 +24,47 @@ export function registerCommands(plugin: AuralitePlugin): void {
 		{
 			id: "toggle-ai-assistant-listening",
 			name: "Toggle AI Assistant Listening",
-			callback: () => {
-				plugin.toggleAssistant();
+			checkCallback: (checking: boolean) => {
+				if (plugin.isBusy()) return false;
+				if (!checking) {
+					plugin.toggleAssistant();
+				}
+				return true;
 			},
 		},
 		{
 			id: "cancel-ongoing-operation",
 			name: "Cancel Ongoing Operation",
-			callback: () => {
-				plugin.cancelOngoingOperation();
+			checkCallback: (checking: boolean) => {
+				if (!plugin.isBusy()) return false;
+				if (!checking) {
+					plugin.cancelOngoingOperation();
+				}
+				return true;
 			},
 		},
 		{
 			id: "auralite-transcribe",
 			name: "Transcribe",
-			callback: () => {
-				plugin.toggleTranscribe();
+			checkCallback: function (checking: boolean) {
+				const currentTask = plugin.getCurrentTask();
+				const isTranscribeTask =
+					plugin.isBusy() &&
+					currentTask instanceof plugin.TranscribeTaskConstructor;
+
+				if (plugin.isBusy() && !isTranscribeTask) {
+					return false;
+				}
+
+				// @ts-ignore
+				this.name = isTranscribeTask
+					? "Auralite: Stop Transcription"
+					: "Auralite: Transcribe";
+
+				if (!checking) {
+					plugin.toggleTranscribe();
+				}
+				return true;
 			},
 		},
 	];
