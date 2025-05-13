@@ -63,14 +63,47 @@ export class AuraliteSettingsTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		this.addOpenAIApiKeySetting(containerEl);
-		this.addOpenAIModelSetting(containerEl);
-		this.addTranscriptionModelSetting(containerEl);
-		this.addPerActionModelSettings(containerEl);
-		this.addSilenceDetectionSettings(containerEl);
-		this.addDefaultNoteTemplateSetting(containerEl);
-		this.addEditModeSettings(containerEl);
-		this.addTelemetrySettings(containerEl);
+		// API Key Section
+		const apiSection = containerEl.createDiv({
+			cls: "auralite-settings-section",
+		});
+		this.addOpenAIApiKeySetting(apiSection);
+
+		// Model Section
+		const modelSection = containerEl.createDiv({
+			cls: "auralite-settings-section",
+		});
+		this.addOpenAIModelSetting(modelSection);
+		this.addTranscriptionModelSetting(modelSection);
+		this.addPerActionModelSettings(modelSection);
+
+		containerEl.createEl("hr", { cls: "auralite-settings-divider" });
+
+		// Silence Detection Section
+		const silenceSection = containerEl.createDiv({
+			cls: "auralite-settings-section",
+		});
+		this.addSilenceDetectionSettings(silenceSection);
+
+		// Template Section
+		const templateSection = containerEl.createDiv({
+			cls: "auralite-settings-section",
+		});
+		this.addDefaultNoteTemplateSetting(templateSection);
+
+		// Edit Mode Section
+		const editSection = containerEl.createDiv({
+			cls: "auralite-settings-section",
+		});
+		this.addEditModeSettings(editSection);
+
+		containerEl.createEl("hr", { cls: "auralite-settings-divider" });
+
+		// Telemetry Section
+		const telemetrySection = containerEl.createDiv({
+			cls: "auralite-settings-section",
+		});
+		this.addTelemetrySettings(telemetrySection);
 	}
 
 	addOpenAIApiKeySetting(containerEl: HTMLElement) {
