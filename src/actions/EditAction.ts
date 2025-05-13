@@ -9,6 +9,8 @@ import type {
 import { merge } from "three-way-merge";
 import { z } from "zod";
 import { Action, type ActionContext } from "./Action";
+import { DiffReviewView } from "@/components/DiffReviewView";
+import type { WorkspaceLeaf } from "obsidian";
 
 const prompt = removeWhitespace(`
     You are an AI assistant tasked with updating a file's content based on specific instructions. This task requires precision and attention to detail to ensure that only the relevant parts of the file are modified while maintaining the integrity of the rest of the content.
@@ -44,6 +46,17 @@ const prompt = removeWhitespace(`
     Remember to maintain the original formatting, indentation, and structure of the file as much as possible, unless the update instructions specifically require changes to these elements.
     It is crucial that you do not make any edits the user did not ask for.
 `);
+
+export enum EditActionStatus {
+	APPLIED = "applied",
+	REJECTED = "rejected",
+	ERROR = "error",
+}
+
+export interface EditActionResult {
+	status: EditActionStatus;
+	error?: string;
+}
 
 export class EditAction extends Action<typeof EditAction.inputSchema> {
 	readonly description: string =
@@ -91,15 +104,57 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 	): Promise<void> {
 		const content = input.choices[0].message.content;
 		if (!content) {
+			context.results.set(this.id, {
+				status: EditActionStatus.ERROR,
+				error: "No content found",
+			});
 			throw new Error("No content found");
 		}
 
 		const updatedContent = this.extractUpdatedContent(content);
 		if (!updatedContent) {
+			context.results.set(this.id, {
+				status: EditActionStatus.ERROR,
+				error: "No updated content found",
+			});
 			throw new Error("No updated content found");
 		}
 
-		await this.applyChanges(updatedContent, context);
+		// Show diff review view and await user decision
+		const result = await new Promise<EditActionStatus>((resolve) => {
+			const leaf = context.app.workspace.getLeaf("tab");
+			const view = new DiffReviewView(
+				leaf as WorkspaceLeaf,
+				this.fileContent ?? "",
+				updatedContent,
+				() => {
+					// Accept: run async logic, then resolve
+					(async () => {
+						try {
+							await this.applyChanges(updatedContent, context);
+							resolve(EditActionStatus.APPLIED);
+						} catch (e) {
+							resolve(EditActionStatus.ERROR);
+						}
+					})();
+				},
+				() => {
+					resolve(EditActionStatus.REJECTED);
+				},
+			);
+			leaf.open(view);
+		});
+
+		if (result === EditActionStatus.APPLIED) {
+			context.results.set(this.id, { status: EditActionStatus.APPLIED });
+		} else if (result === EditActionStatus.REJECTED) {
+			context.results.set(this.id, { status: EditActionStatus.REJECTED });
+		} else {
+			context.results.set(this.id, {
+				status: EditActionStatus.ERROR,
+				error: "Failed to apply changes",
+			});
+		}
 	}
 
 	private extractUpdatedContent(responseContent: string): string | null {
@@ -166,6 +221,8 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 			fileContent: this.fileContent,
 		});
 
+		const model = context.model;
+
 		if (useEditMode && this.fileContent) {
 			// Use edit mode
 			const response = await context.ai.createOpenAIChatCompletion(
@@ -173,6 +230,7 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 				{},
 				true,
 				this.fileContent,
+				model,
 			);
 			// Type assertion to ensure response is treated as ChatCompletion
 			await this.performAction(response as ChatCompletion, context);
@@ -183,12 +241,14 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 					const stream = await context.ai.createInstructorChatCompletionStream(
 						this.inputSchema,
 						msgs,
+						model,
 					);
 					await this.performActionStream(stream, context);
 				} else {
 					const input = await context.ai.createInstructorChatCompletion(
 						this.inputSchema,
 						msgs,
+						model,
 					);
 					// Type assertion to match expected parameter type
 					await this.performAction(input as unknown as ChatCompletion, context);
@@ -199,7 +259,13 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 						await context.ai.createOpenAIChatCompletionStream(msgs);
 					await this.performActionStream(stream, context);
 				} else {
-					const response = await context.ai.createOpenAIChatCompletion(msgs);
+					const response = await context.ai.createOpenAIChatCompletion(
+						msgs,
+						{},
+						false,
+						undefined,
+						model,
+					);
 					// Type assertion to ensure response is treated as ChatCompletion
 					await this.performAction(response as ChatCompletion, context);
 				}

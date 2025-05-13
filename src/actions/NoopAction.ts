@@ -5,6 +5,7 @@ import { Action, type ActionContext } from "./Action";
 export class NoopAction extends Action<typeof NoopAction.inputSchema> {
 	readonly description =
 		"This action does nothing and is used when no specific action is required.";
+	readonly usesLLM = false;
 
 	static inputSchema = z.object({});
 

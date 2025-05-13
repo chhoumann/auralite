@@ -24,8 +24,18 @@ export function registerCommands(plugin: AuralitePlugin): void {
 		{
 			id: "toggle-ai-assistant-listening",
 			name: "Toggle AI Assistant Listening",
-			checkCallback: (checking: boolean) => {
-				if (plugin.isBusy()) return false;
+			checkCallback: function (checking: boolean) {
+				const isAssistantActive = plugin.isAssistantActive();
+
+				if (plugin.isBusy() && !isAssistantActive) {
+					return false;
+				}
+
+				// @ts-ignore
+				this.name = isAssistantActive
+					? "Auralite: Stop Assistant"
+					: "Auralite: Start Assistant";
+
 				if (!checking) {
 					plugin.toggleAssistant();
 				}

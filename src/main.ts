@@ -298,4 +298,8 @@ export default class AuralitePlugin extends Plugin {
 	public getCurrentTask(): TranscribeTask | AssistantTask | undefined {
 		return this.currentTask;
 	}
+
+	public isAssistantActive(): boolean {
+		return this.currentTask instanceof AssistantTask;
+	}
 }
