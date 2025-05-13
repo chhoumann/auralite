@@ -73,14 +73,14 @@
 	color: var(--text-normal);
 }
 .auralite-diff-removed {
-	background: #ffecec;
-	color: #d32f2f;
+	background: var(--diff-removed-bg);
+	color: var(--diff-removed-text);
 	text-decoration: line-through;
 	padding: 0 2px;
 }
 .auralite-diff-added {
-	background: #eaffea;
-	color: #388e3c;
+	background: var(--diff-added-bg);
+	color: var(--diff-added-text);
 	padding: 0 2px;
 }
 .auralite-diff-actions {
@@ -253,11 +253,11 @@
 	background: rgba(255, 235, 59, 0.13);
 }
 .cm-mergeView .cm-deletedLine {
-	background: #ffecec;
+	background: var(--diff-removed-bg);
 	text-decoration: line-through;
 }
 .cm-mergeView .cm-insertedLine {
-	background: #eaffea;
+	background: var(--diff-added-bg);
 }
 
 .auralite-diff-cm6-container.auralite-diff-preview-mode {
@@ -304,4 +304,24 @@
 }
 .auralite-diff-preview-col.scroll-sync {
 	/* For JS to target for scroll syncing */
+}
+
+/* Diff color variables */
+:root {
+	--diff-added-bg: #e6f4ea;
+	--diff-added-text: #256029;
+	--diff-removed-bg: #fbeaea;
+	--diff-removed-text: #a33a3a;
+}
+.theme-dark {
+	--diff-added-bg: #22372b;
+	--diff-added-text: #a6e9b3;
+	--diff-removed-bg: #3a2323;
+	--diff-removed-text: #f6b3b3;
+}
+.theme-light {
+	--diff-added-bg: #e6f4ea;
+	--diff-added-text: #256029;
+	--diff-removed-bg: #fbeaea;
+	--diff-removed-text: #a33a3a;
 }
