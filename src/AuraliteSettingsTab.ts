@@ -1,7 +1,18 @@
 import { type App, PluginSettingTab, Setting } from "obsidian";
 import type AuralitePlugin from "./main";
 
-const models = ["gpt-4o", "gpt-4o-mini"] as const;
+const models = [
+	"gpt-4.1",
+	"gpt-4.1-mini",
+	"gpt-4.1-nano",
+	"gpt-4o",
+	"gpt-4o-mini",
+	"o4-mini",
+	"o3",
+	"o3-mini",
+	"o1",
+	"o1-mini",
+] as const;
 const transcriptionModels = [
 	"whisper-1",
 	"gpt-4o-transcribe",
@@ -24,7 +35,7 @@ export interface AuralitePluginSettings {
 
 export const DEFAULT_SETTINGS: AuralitePluginSettings = {
 	OPENAI_API_KEY: "",
-	OPENAI_MODEL: "gpt-4o",
+	OPENAI_MODEL: "gpt-4.1",
 	SILENCE_DETECTION_ENABLED: false,
 	SILENCE_DURATION: 2000,
 	DEFAULT_NOTE_TEMPLATE_PATH: "",

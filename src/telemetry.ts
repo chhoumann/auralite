@@ -101,8 +101,16 @@ export class Telemetry {
 
 	// Pricing per 1000 tokens in USD (updated 2025-03-16)
 	private modelPricing: Record<string, ModelPricing> = {
-		"gpt-4o": { prompt: 0.0025, completion: 0.01 },
-		"gpt-4o-mini": { prompt: 0.00015, completion: 0.0006 },
+		"gpt-4.1": { prompt: 0.002, completion: 0.008 },
+		"gpt-4.1-mini": { prompt: 0.0002, completion: 0.0008 },
+		"gpt-4.1-nano": { prompt: 0.0001, completion: 0.0004 },
+		"gpt-4o": { prompt: 0.005, completion: 0.015 },
+		"gpt-4o-mini": { prompt: 0.0005, completion: 0.002 },
+		"o4-mini": { prompt: 0.001, completion: 0.004 },
+		o3: { prompt: 0.002, completion: 0.008 },
+		"o3-mini": { prompt: 0.0005, completion: 0.002 },
+		o1: { prompt: 0.001, completion: 0.004 },
+		"o1-mini": { prompt: 0.0002, completion: 0.0008 },
 		"whisper-1": { prompt: 0, completion: 0.006 },
 		// Default for unknown models
 		default: { prompt: 0.001, completion: 0.002 },
