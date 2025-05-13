@@ -63,15 +63,25 @@ export class AuraliteSettingsTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		// API Key Section
+		// 1. API & Authentication Section
 		const apiSection = containerEl.createDiv({
 			cls: "auralite-settings-section",
 		});
+		apiSection.createEl("h3", { text: "API & Authentication" });
+		apiSection.createEl("div", {
+			text: "Connect Auralite to OpenAI by providing your API key.",
+			cls: "auralite-settings-section-description",
+		});
 		this.addOpenAIApiKeySetting(apiSection);
 
-		// Model Section
+		// 2. AI Models Section
 		const modelSection = containerEl.createDiv({
 			cls: "auralite-settings-section",
+		});
+		modelSection.createEl("h3", { text: "AI Models" });
+		modelSection.createEl("div", {
+			text: "Choose which AI models to use for text and audio tasks.",
+			cls: "auralite-settings-section-description",
 		});
 		this.addOpenAIModelSetting(modelSection);
 		this.addTranscriptionModelSetting(modelSection);
@@ -79,29 +89,49 @@ export class AuraliteSettingsTab extends PluginSettingTab {
 
 		containerEl.createEl("hr", { cls: "auralite-settings-divider" });
 
-		// Silence Detection Section
+		// 3. Audio & Recording Section
 		const silenceSection = containerEl.createDiv({
 			cls: "auralite-settings-section",
 		});
+		silenceSection.createEl("h3", { text: "Audio & Recording" });
+		silenceSection.createEl("div", {
+			text: "Configure how Auralite handles audio input and silence detection.",
+			cls: "auralite-settings-section-description",
+		});
 		this.addSilenceDetectionSettings(silenceSection);
 
-		// Template Section
+		// 4. Notes & Templates Section
 		const templateSection = containerEl.createDiv({
 			cls: "auralite-settings-section",
 		});
+		templateSection.createEl("h3", { text: "Notes & Templates" });
+		templateSection.createEl("div", {
+			text: "Set up default templates for new notes.",
+			cls: "auralite-settings-section-description",
+		});
 		this.addDefaultNoteTemplateSetting(templateSection);
 
-		// Edit Mode Section
+		// 5. Editor Preferences Section
 		const editSection = containerEl.createDiv({
 			cls: "auralite-settings-section",
+		});
+		editSection.createEl("h3", { text: "Editor Preferences" });
+		editSection.createEl("div", {
+			text: "Customize how the editor behaves by default.",
+			cls: "auralite-settings-section-description",
 		});
 		this.addEditModeSettings(editSection);
 
 		containerEl.createEl("hr", { cls: "auralite-settings-divider" });
 
-		// Telemetry Section
+		// 6. Privacy & Telemetry Section
 		const telemetrySection = containerEl.createDiv({
 			cls: "auralite-settings-section",
+		});
+		telemetrySection.createEl("h3", { text: "Privacy & Telemetry" });
+		telemetrySection.createEl("div", {
+			text: "Control what data is collected and how it is used.",
+			cls: "auralite-settings-section-description",
 		});
 		this.addTelemetrySettings(telemetrySection);
 	}
@@ -159,9 +189,12 @@ export class AuraliteSettingsTab extends PluginSettingTab {
 	}
 
 	addPerActionModelSettings(containerEl: HTMLElement) {
-		const section = containerEl.createEl("details");
+		const section = containerEl.createEl("details", {
+			cls: "auralite-settings-advanced",
+		});
 		section.createEl("summary", {
 			text: "Advanced: Per-Action Model Selection",
+			cls: "auralite-settings-advanced-summary",
 		});
 		section.createEl("div", {
 			text: "Override the LLM model for specific actions. If not set, the global model is used.",
@@ -281,7 +314,7 @@ export class AuraliteSettingsTab extends PluginSettingTab {
 
 	addTelemetrySettings(containerEl: HTMLElement) {
 		const telemetrySection = containerEl.createEl("div");
-		telemetrySection.createEl("h3", { text: "Telemetry" });
+		telemetrySection.createEl("h4", { text: "Telemetry" });
 
 		new Setting(telemetrySection)
 			.setName("Enable Token Usage Tracking")
@@ -299,10 +332,12 @@ export class AuraliteSettingsTab extends PluginSettingTab {
 			);
 
 		// Add debug mode toggle (hidden behind advanced settings)
-		const advancedSection = telemetrySection.createEl("details");
+		const advancedSection = telemetrySection.createEl("details", {
+			cls: "auralite-settings-advanced",
+		});
 		advancedSection.createEl("summary", {
 			text: "Advanced Settings",
-			cls: "telemetry-advanced-toggle",
+			cls: "auralite-settings-advanced-summary telemetry-advanced-toggle",
 		});
 
 		new Setting(advancedSection)

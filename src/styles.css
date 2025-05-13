@@ -327,24 +327,29 @@
 }
 
 .auralite-settings-section {
-	margin-bottom: 2.2em;
-	padding: 1.2em 1.5em 1.2em 1.5em;
+	margin-bottom: 2.5em;
+	padding: 1.5em 1.7em 1.2em 1.7em;
 	background: var(--background-secondary-alt, var(--background-secondary));
-	border-radius: 10px;
+	border-radius: 12px;
 	border: 1px solid var(--background-modifier-border);
-	box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+	box-shadow: 0 1px 2px rgba(0,0,0,0.02);
 }
-.auralite-settings-section h3,
-.auralite-settings-section summary {
+.auralite-settings-section h3 {
 	margin-top: 0;
-	margin-bottom: 0.7em;
-	font-size: 1.1em;
-	font-weight: 600;
+	margin-bottom: 0.4em;
+	font-size: 1.18em;
+	font-weight: 700;
 	color: var(--text-accent);
 	letter-spacing: 0.01em;
 }
+.auralite-settings-section-description {
+	color: var(--text-muted);
+	font-size: 0.99em;
+	margin: 0 0 1.2em 0;
+	padding-left: 0;
+}
 .auralite-settings-section .setting-item {
-	margin-bottom: 1.1em;
+	margin-bottom: 1.3em;
 }
 .auralite-settings-section .setting-item:last-child {
 	margin-bottom: 0;
@@ -365,5 +370,36 @@
 .auralite-settings-divider {
 	border: none;
 	border-top: 1px solid var(--background-modifier-border);
-	margin: 2em 0 2em 0;
+	margin: 2.5em 0 2.5em 0;
 }
+
+/* --- Auralite SettingsTab Redesign Additions --- */
+.auralite-settings-section h4 {
+	margin-top: 0;
+	margin-bottom: 0.7em;
+	font-size: 1.13em;
+	font-weight: 600;
+	color: var(--text-accent);
+	letter-spacing: 0.01em;
+}
+.auralite-settings-advanced {
+	margin-top: 1.1em;
+	margin-bottom: 0.7em;
+	background: none;
+	border-radius: 8px;
+	border: 1px dashed var(--background-modifier-border);
+	box-shadow: none;
+	padding: 0.5em 0.7em 0.5em 0.7em;
+}
+.auralite-settings-advanced-summary {
+	font-weight: 600;
+	color: var(--text-accent);
+	cursor: pointer;
+	font-size: 1em;
+	letter-spacing: 0.01em;
+	margin-bottom: 0.5em;
+}
+.auralite-settings-advanced[open] > .auralite-settings-advanced-summary {
+	color: var(--interactive-accent);
+}
+/* End Auralite SettingsTab Redesign Additions */
