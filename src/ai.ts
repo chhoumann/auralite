@@ -12,6 +12,8 @@ import { hasUsage, isActionResponse } from "./api_types";
 import { logger } from "./logging";
 import { telemetry } from "./telemetry";
 import { TypedEvents } from "./types/TypedEvents";
+import { withTelemetry, type TelemetryContext } from "@/utils/withTelemetry";
+import { getOrCreateSessionId, generateRequestId } from "@/utils/session";
 
 interface AIManagerEvents {
 	processingStarted: () => void;
@@ -50,14 +52,15 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 	}): Promise<string> {
 		this.abortController = new AbortController();
 
-		// Start recording telemetry
-		const requestId = telemetry.startRecording("whisper-1", "transcription");
+		// Use the selected transcription model from settings
+		const model = this.plugin.settings.TRANSCRIPTION_MODEL;
+		const requestId = telemetry.startRecording(model, "transcription");
 
 		try {
 			const response = await this.oai.audio.transcriptions.create(
 				{
 					file: new File([audioData.buffer], `audio.${audioData.mimeType}`),
-					model: "whisper-1",
+					model,
 				},
 				{ signal: this.abortController.signal },
 			);
@@ -67,7 +70,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 
 			// Finish recording telemetry
 			telemetry.finishRecording(requestId, {
-				promptTokens: 0, // Whisper doesn't have prompt tokens
+				promptTokens: 0, // Whisper/gpt-4o-transcribe doesn't have prompt tokens
 				completionTokens: estimatedTokens,
 				response: response,
 			});
@@ -118,146 +121,142 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 	async run(userInput: string, editorState: Partial<EditorState>) {
 		this.trigger("processingStarted");
 
-		// Track the entire operation in telemetry
-		const runRequestId = telemetry.startRecording(
-			this.plugin.settings.OPENAI_MODEL,
+		const context: TelemetryContext = {
+			sessionId: getOrCreateSessionId(),
+			actionId: "run_operation",
+			requestId: generateRequestId(),
+			fileName: editorState?.currentFile?.name,
+			pluginVersion: this.plugin.manifest?.version,
+		};
+
+		await withTelemetry(
 			"run_operation",
-			{
-				requestPayload: telemetry.isDebugMode() ? { userInput } : undefined,
-			},
-		);
+			this.plugin.settings.OPENAI_MODEL,
+			context,
+			async (requestId, ctx) => {
+				const actionsList = this.actionIds.map(
+					(actionId) =>
+						` - ${actionId}: ${this.plugin.actionManager?.getAction(actionId)?.description}`,
+				);
+				const actionsPrompt = removeWhitespace(
+					`The action to take. Here are the available actions:\n${actionsList.join("\n")}`,
+				);
 
-		try {
-			const actionsList = this.actionIds.map(
-				(actionId) =>
-					` - ${actionId}: ${this.plugin.actionManager?.getAction(actionId)?.description}`,
-			);
-			const actionsPrompt = removeWhitespace(
-				`The action to take. Here are the available actions:\n${actionsList.join("\n")}`,
-			);
+				const possibleContexts = {
+					currentFile: "The current file, including name and contents",
+					currentLine: "The current line",
+					currentSelection: "The current selection",
+				} as const;
 
-			const possibleContexts = {
-				currentFile: "The current file, including name and contents",
-				currentLine: "The current line",
-				currentSelection: "The current selection",
-			} as const;
+				type PossibleContexts = keyof typeof possibleContexts;
 
-			type PossibleContexts = keyof typeof possibleContexts;
-
-			const actionSchema = z.object({
-				action: z
-					.enum(this.actionIds as [string, ...string[]])
-					.describe(actionsPrompt),
-				necessaryContexts: z
-					.array(
-						z.enum(
-							Object.keys(possibleContexts) as [
-								PossibleContexts,
-								...PossibleContexts[],
-							],
-						),
-					)
-					.optional()
-					.describe(
-						`The necessary context to execute the action.\nOnly include the context that is necessary to execute the action.\nHere are the available contexts:\n${Object.entries(
-							possibleContexts,
+				const actionSchema = z.object({
+					action: z
+						.enum(this.actionIds as [string, ...string[]])
+						.describe(actionsPrompt),
+					necessaryContexts: z
+						.array(
+							z.enum(
+								Object.keys(possibleContexts) as [
+									PossibleContexts,
+									...PossibleContexts[],
+								],
+							),
 						)
-							.map(([key, value]) => `- ${key}: ${value}`)
-							.join("\n")}`,
-					),
-				useEditMode: z
-					.boolean()
-					.optional()
-					.default(this.plugin.settings.USE_EDIT_MODE_BY_DEFAULT)
-					.describe(
-						"Whether to use the edit mode for faster completions. Only set to true if this involves editing an existing file with moderate to substantial changes.",
-					),
-			});
-
-			const response = await this.createInstructorChatCompletion(actionSchema, [
-				{
-					role: "system",
-					content: "You are an assistant that can execute actions",
-				},
-				{
-					role: "user",
-					content: userInput,
-				},
-			]);
-
-			// Ensure response is an ActionResponse
-			if (!isActionResponse(response)) {
-				throw new Error("Invalid action response format");
-			}
-
-			const actionResult = response;
-			const necessaryContexts = actionResult.necessaryContexts ?? [];
-
-			this.trigger("actionPlanned", actionResult.action, necessaryContexts);
-
-			const input = new Map<string, unknown>();
-
-			// Filter contexts to those present in editorState
-			const validContextKeys = necessaryContexts.filter(
-				(key) => key in editorState,
-			) as Array<keyof Partial<EditorState>>;
-
-			// Add contexts to input
-			for (const key of validContextKeys) {
-				input.set(key, editorState[key]);
-			}
-
-			// Add additional inputs
-			input.set("action", actionResult.action);
-			input.set(
-				"actionDescription",
-				this.plugin.actionManager.getAction(actionResult.action)?.description,
-			);
-			input.set("userInput", userInput);
-
-			// Add edit mode flag if specified
-			if (actionResult.useEditMode !== undefined) {
-				input.set("useEditMode", actionResult.useEditMode);
-			}
-
-			logger.debug("input", { input });
-
-			// Execute the action
-			this.trigger("actionExecutionStarted", actionResult.action);
-			await this.executeAction(actionResult.action, input, editorState);
-			this.trigger("actionExecutionComplete", actionResult.action);
-
-			// Record successful completion of the entire run operation
-			// We'll collect telemetry from the context results
-			telemetry.finishRecording(runRequestId, {
-				promptTokens: telemetry.estimateTokenCount(userInput),
-				completionTokens: telemetry.estimateTokenCount(
-					JSON.stringify(Object.fromEntries(input)),
-				),
-				response: telemetry.isDebugMode()
-					? {
-							action: actionResult.action,
-							contexts: necessaryContexts,
-						}
-					: undefined,
-			});
-
-			this.trigger("processingComplete");
-		} catch (error) {
-			// Record error in run operation telemetry
-			if (error instanceof Error) {
-				telemetry.finishRecording(runRequestId, {
-					promptTokens: telemetry.estimateTokenCount(userInput),
-					completionTokens: 0,
-					error: error,
+						.optional()
+						.describe(
+							`The necessary context to execute the action.\nOnly include the context that is necessary to execute the action.\nHere are the available contexts:\n${Object.entries(
+								possibleContexts,
+							)
+								.map(([key, value]) => `- ${key}: ${value}`)
+								.join("\n")}`,
+						),
+					useEditMode: z
+						.boolean()
+						.optional()
+						.default(this.plugin.settings.USE_EDIT_MODE_BY_DEFAULT)
+						.describe(
+							"Whether to use the edit mode for faster completions. Only set to true if this involves editing an existing file with moderate to substantial changes.",
+						),
 				});
-			}
 
-			this.trigger(
-				"error",
-				error instanceof Error ? error : new Error(String(error)),
-			);
-		}
+				const response = await this.createInstructorChatCompletion(
+					actionSchema,
+					[
+						{
+							role: "system",
+							content: "You are an assistant that can execute actions",
+						},
+						{
+							role: "user",
+							content: userInput,
+						},
+					],
+				);
+
+				// Ensure response is an ActionResponse
+				if (!isActionResponse(response)) {
+					throw new Error("Invalid action response format");
+				}
+
+				const actionResult = response;
+				const necessaryContexts = actionResult.necessaryContexts ?? [];
+
+				this.trigger("actionPlanned", actionResult.action, necessaryContexts);
+
+				const input = new Map<string, unknown>();
+
+				// Filter contexts to those present in editorState
+				const validContextKeys = necessaryContexts.filter(
+					(key) => key in editorState,
+				) as Array<keyof Partial<EditorState>>;
+
+				// Add contexts to input
+				for (const key of validContextKeys) {
+					input.set(key, editorState[key]);
+				}
+
+				// Add additional inputs
+				input.set("action", actionResult.action);
+				input.set(
+					"actionDescription",
+					this.plugin.actionManager.getAction(actionResult.action)?.description,
+				);
+				input.set("userInput", userInput);
+
+				// Add edit mode flag if specified
+				if (actionResult.useEditMode !== undefined) {
+					input.set("useEditMode", actionResult.useEditMode);
+				}
+
+				logger.debug("input", { input });
+
+				// Execute the action
+				this.trigger("actionExecutionStarted", actionResult.action);
+				await this.executeAction(actionResult.action, input, editorState);
+				this.trigger("actionExecutionComplete", actionResult.action);
+
+				// Record successful completion of the entire run operation
+				// We'll collect telemetry from the context results
+				telemetry.finishRecording(requestId, {
+					promptTokens: telemetry.estimateTokenCount(userInput),
+					completionTokens: telemetry.estimateTokenCount(
+						JSON.stringify(Object.fromEntries(input)),
+					),
+					response: telemetry.isDebugMode()
+						? {
+								action: actionResult.action,
+								contexts: necessaryContexts,
+							}
+						: undefined,
+				});
+
+				this.trigger("processingComplete");
+			},
+			() => ({
+				requestPayload: telemetry.isDebugMode() ? { userInput } : undefined,
+			}),
+		);
 	}
 
 	async createInstructorChatCompletion<TSchema extends z.AnyZodObject>(
@@ -266,13 +265,20 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 	) {
 		this.abortController = new AbortController();
 
-		// Start recording telemetry
+		const context: TelemetryContext = {
+			sessionId: getOrCreateSessionId(),
+			actionId: "instructor_completion",
+			requestId: generateRequestId(),
+			pluginVersion: this.plugin.manifest?.version,
+		};
+		const options = {
+			requestPayload: { messages, schema: schema.description },
+		};
 		const requestId = telemetry.startRecording(
 			this.plugin.settings.OPENAI_MODEL,
 			"instructor_completion",
-			{
-				requestPayload: { messages, schema: schema.description },
-			},
+			context,
+			options,
 		);
 
 		try {
@@ -337,14 +343,21 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 	): Promise<Stream<z.infer<TSchema>>> {
 		this.abortController = new AbortController();
 
-		// Start recording telemetry
+		const context: TelemetryContext = {
+			sessionId: getOrCreateSessionId(),
+			actionId: "instructor_stream",
+			requestId: generateRequestId(),
+			pluginVersion: this.plugin.manifest?.version,
+		};
+		const options = {
+			isStreaming: true,
+			requestPayload: { messages, schema: schema.description },
+		};
 		const requestId = telemetry.startRecording(
 			this.plugin.settings.OPENAI_MODEL,
 			"instructor_stream",
-			{
-				isStreaming: true,
-				requestPayload: { messages, schema: schema.description },
-			},
+			context,
+			options,
 		);
 
 		try {
@@ -363,12 +376,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 					{ signal: this.abortController.signal },
 				);
 
-			// Since the stream implementation is causing TypeScript issues,
-			// we'll just return the original stream and handle telemetry separately
-			// in the user class that consumes this stream
-
 			// Schedule telemetry recording for after stream completes
-			// This is a reasonable compromise rather than wrapping the stream
 			setTimeout(() => {
 				// Very crude estimate of token usage for streams
 				const promptTokens = telemetry.estimateTokenCount(
@@ -414,16 +422,23 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 	) {
 		this.abortController = new AbortController();
 
-		// Start recording telemetry
+		const context: TelemetryContext = {
+			sessionId: getOrCreateSessionId(),
+			actionId: "chat_completion",
+			requestId: generateRequestId(),
+			pluginVersion: this.plugin.manifest?.version,
+		};
+		const telemetryOptions = {
+			editMode: useEditMode,
+			requestPayload: telemetry.isDebugMode()
+				? { messages, options }
+				: undefined,
+		};
 		const requestId = telemetry.startRecording(
 			this.plugin.settings.OPENAI_MODEL,
 			"chat_completion",
-			{
-				editMode: useEditMode,
-				requestPayload: telemetry.isDebugMode()
-					? { messages, options }
-					: undefined,
-			},
+			context,
+			telemetryOptions,
 		);
 
 		try {
@@ -536,16 +551,23 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 	) {
 		this.abortController = new AbortController();
 
-		// Start recording telemetry
+		const context: TelemetryContext = {
+			sessionId: getOrCreateSessionId(),
+			actionId: "chat_completion_stream",
+			requestId: generateRequestId(),
+			pluginVersion: this.plugin.manifest?.version,
+		};
+		const telemetryOptions = {
+			isStreaming: true,
+			requestPayload: telemetry.isDebugMode()
+				? { messages, options }
+				: undefined,
+		};
 		const requestId = telemetry.startRecording(
 			this.plugin.settings.OPENAI_MODEL,
 			"chat_completion_stream",
-			{
-				isStreaming: true,
-				requestPayload: telemetry.isDebugMode()
-					? { messages, options }
-					: undefined,
-			},
+			context,
+			telemetryOptions,
 		);
 
 		try {
@@ -560,12 +582,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 				{ signal: this.abortController.signal },
 			);
 
-			// Since the stream implementation is causing TypeScript issues,
-			// we'll just return the original stream and handle telemetry separately
-			// in the user class that consumes this stream
-
 			// Schedule telemetry recording for after stream completes
-			// This is a reasonable compromise rather than wrapping the stream
 			setTimeout(() => {
 				// Very crude estimate of token usage for streams
 				const promptTokens = telemetry.estimateTokenCount(

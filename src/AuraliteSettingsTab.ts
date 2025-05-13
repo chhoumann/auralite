@@ -1,9 +1,26 @@
 import { type App, PluginSettingTab, Setting } from "obsidian";
 import type AuralitePlugin from "./main";
 
-const models = ["gpt-4o", "gpt-4o-mini"] as const;
+const models = [
+	"gpt-4.1",
+	"gpt-4.1-mini",
+	"gpt-4.1-nano",
+	"gpt-4o",
+	"gpt-4o-mini",
+	"o4-mini",
+	"o3",
+	"o3-mini",
+	"o1",
+	"o1-mini",
+] as const;
+const transcriptionModels = [
+	"whisper-1",
+	"gpt-4o-transcribe",
+	"gpt-4o-mini-transcribe",
+] as const;
 
 type OpenAIModel = (typeof models)[number];
+type TranscriptionModel = (typeof transcriptionModels)[number];
 
 export interface AuralitePluginSettings {
 	OPENAI_API_KEY: string;
@@ -13,16 +30,18 @@ export interface AuralitePluginSettings {
 	DEFAULT_NOTE_TEMPLATE_PATH: string;
 	USE_EDIT_MODE_BY_DEFAULT: boolean;
 	TELEMETRY_ENABLED: boolean;
+	TRANSCRIPTION_MODEL: TranscriptionModel;
 }
 
 export const DEFAULT_SETTINGS: AuralitePluginSettings = {
 	OPENAI_API_KEY: "",
-	OPENAI_MODEL: "gpt-4o",
+	OPENAI_MODEL: "gpt-4.1",
 	SILENCE_DETECTION_ENABLED: false,
 	SILENCE_DURATION: 2000,
 	DEFAULT_NOTE_TEMPLATE_PATH: "",
 	USE_EDIT_MODE_BY_DEFAULT: false,
 	TELEMETRY_ENABLED: true,
+	TRANSCRIPTION_MODEL: "whisper-1",
 };
 
 export class AuraliteSettingsTab extends PluginSettingTab {
@@ -40,6 +59,7 @@ export class AuraliteSettingsTab extends PluginSettingTab {
 
 		this.addOpenAIApiKeySetting(containerEl);
 		this.addOpenAIModelSetting(containerEl);
+		this.addTranscriptionModelSetting(containerEl);
 		this.addSilenceDetectionSettings(containerEl);
 		this.addDefaultNoteTemplateSetting(containerEl);
 		this.addEditModeSettings(containerEl);
@@ -75,6 +95,24 @@ export class AuraliteSettingsTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.OPENAI_MODEL)
 					.onChange(async (value) => {
 						this.plugin.settings.OPENAI_MODEL = value as OpenAIModel;
+						await this.plugin.saveSettings();
+					});
+			});
+	}
+
+	addTranscriptionModelSetting(containerEl: HTMLElement) {
+		new Setting(containerEl)
+			.setName("Transcription Model")
+			.setDesc("Select the model to use for audio transcription.")
+			.addDropdown((dropdown) => {
+				for (const model of transcriptionModels) {
+					dropdown.addOption(model, model);
+				}
+				dropdown
+					.setValue(this.plugin.settings.TRANSCRIPTION_MODEL)
+					.onChange(async (value) => {
+						this.plugin.settings.TRANSCRIPTION_MODEL =
+							value as TranscriptionModel;
 						await this.plugin.saveSettings();
 					});
 			});

@@ -16,6 +16,13 @@ export interface TokenUsage {
 	editMode?: boolean;
 	isStreaming?: boolean;
 
+	// Contextual telemetry fields
+	sessionId?: string;
+	actionId?: string;
+	requestId?: string; // Unique per logical operation
+	fileName?: string;
+	pluginVersion?: string;
+
 	// Performance metrics
 	timestamp: Date;
 	startTime?: number; // ms since epoch when request started
@@ -31,7 +38,6 @@ export interface TokenUsage {
 	estimatedCost?: number;
 
 	// Request debugging (optional - only when debug mode is enabled)
-	requestId?: string;
 	requestPayload?: string; // JSON stringified if in debug mode
 }
 
@@ -101,8 +107,16 @@ export class Telemetry {
 
 	// Pricing per 1000 tokens in USD (updated 2025-03-16)
 	private modelPricing: Record<string, ModelPricing> = {
-		"gpt-4o": { prompt: 0.0025, completion: 0.01 },
-		"gpt-4o-mini": { prompt: 0.00015, completion: 0.0006 },
+		"gpt-4.1": { prompt: 0.002, completion: 0.008 },
+		"gpt-4.1-mini": { prompt: 0.0002, completion: 0.0008 },
+		"gpt-4.1-nano": { prompt: 0.0001, completion: 0.0004 },
+		"gpt-4o": { prompt: 0.005, completion: 0.015 },
+		"gpt-4o-mini": { prompt: 0.0005, completion: 0.002 },
+		"o4-mini": { prompt: 0.001, completion: 0.004 },
+		o3: { prompt: 0.002, completion: 0.008 },
+		"o3-mini": { prompt: 0.0005, completion: 0.002 },
+		o1: { prompt: 0.001, completion: 0.004 },
+		"o1-mini": { prompt: 0.0002, completion: 0.0008 },
 		"whisper-1": { prompt: 0, completion: 0.006 },
 		// Default for unknown models
 		default: { prompt: 0.001, completion: 0.002 },
@@ -574,13 +588,20 @@ export class Telemetry {
 	public startRecording(
 		model: string,
 		operation: string,
+		context?: {
+			sessionId?: string;
+			actionId?: string;
+			requestId?: string;
+			fileName?: string;
+			pluginVersion?: string;
+		},
 		options?: {
 			isStreaming?: boolean;
 			editMode?: boolean;
 			requestPayload?: unknown;
 		},
 	): string {
-		const requestId = this.generateRequestId();
+		const requestId = context?.requestId || this.generateRequestId();
 
 		if (this.debugMode && options?.requestPayload) {
 			logger.debug(`Starting API call ${requestId}`, {
@@ -590,11 +611,8 @@ export class Telemetry {
 			});
 		}
 
-		// Start tracking the request in memory, even if we're not fully enabled yet
-		// This allows us to capture timing information accurately
 		const startTime = Date.now();
 
-		// Store in memory with a weak map to avoid cluttering the actual telemetry records
 		this.activeRequests.set(requestId, {
 			startTime,
 			model,
@@ -605,6 +623,11 @@ export class Telemetry {
 				this.debugMode && options?.requestPayload
 					? JSON.stringify(options.requestPayload)
 					: undefined,
+			// Context fields
+			sessionId: context?.sessionId,
+			actionId: context?.actionId,
+			fileName: context?.fileName,
+			pluginVersion: context?.pluginVersion,
 		});
 
 		return requestId;
@@ -635,13 +658,11 @@ export class Telemetry {
 			return;
 		}
 
-		// Remove from active requests
 		this.activeRequests.delete(requestId);
 
 		const totalTokens =
 			result.totalTokens ?? result.promptTokens + result.completionTokens;
 
-		// Calculate the cost
 		const pricing =
 			this.modelPricing[requestInfo.model] || this.getDefaultPricing();
 		const estimatedCost =
@@ -650,7 +671,6 @@ export class Telemetry {
 
 		const hasError = !!result.error;
 
-		// Log the result
 		if (this.debugMode) {
 			if (hasError) {
 				logger.warn(
@@ -675,34 +695,27 @@ export class Telemetry {
 			}
 		}
 
-		// Record the full telemetry
 		this.recordTokenUsage({
-			// Token counts
 			promptTokens: result.promptTokens,
 			completionTokens: result.completionTokens,
 			totalTokens,
-
-			// Request metadata
 			model: requestInfo.model,
 			operation: requestInfo.operation,
 			editMode: requestInfo.editMode,
 			isStreaming: requestInfo.isStreaming,
-
-			// Performance metrics
+			// Context fields
+			sessionId: requestInfo.sessionId,
+			actionId: requestInfo.actionId,
+			requestId,
+			fileName: requestInfo.fileName,
+			pluginVersion: requestInfo.pluginVersion,
 			startTime: requestInfo.startTime,
 			endTime,
 			duration: endTime - requestInfo.startTime,
-
-			// Error tracking
 			hasError,
 			errorType: hasError ? result.error?.name : undefined,
 			errorMessage: hasError ? result.error?.message : undefined,
-
-			// Cost metrics
 			estimatedCost,
-
-			// Request debugging
-			requestId,
 			requestPayload: requestInfo.requestPayload,
 		});
 	}
@@ -717,6 +730,10 @@ export class Telemetry {
 			isStreaming?: boolean;
 			editMode?: boolean;
 			requestPayload?: string;
+			sessionId?: string;
+			actionId?: string;
+			fileName?: string;
+			pluginVersion?: string;
 		}
 	>();
 }

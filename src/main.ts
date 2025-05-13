@@ -36,6 +36,7 @@ export default class AuralitePlugin extends Plugin {
 	private aiManager!: AIManager;
 	private silenceDetection?: SilenceDetection;
 	private currentTask?: TranscribeTask | AssistantTask;
+	public TranscribeTaskConstructor: typeof TranscribeTask = TranscribeTask;
 
 	override async onload() {
 		await this.loadSettings();
@@ -179,7 +180,8 @@ export default class AuralitePlugin extends Plugin {
 		if (this.settings.TELEMETRY_ENABLED) {
 			await telemetry.saveTokenUsage((telemetryData) => {
 				// Using bracket notation to avoid TypeScript index signature error
-				dataToSave.telemetryData = telemetryData;
+				// biome-ignore lint/complexity/useLiteralKeys: <explanation>
+				dataToSave["telemetryData"] = telemetryData;
 				return this.saveData(dataToSave);
 			});
 		} else {
@@ -287,5 +289,13 @@ export default class AuralitePlugin extends Plugin {
 	 */
 	public clearTelemetryData(): void {
 		telemetry.clearTokenUsage();
+	}
+
+	public isBusy(): boolean {
+		return !!this.currentTask;
+	}
+
+	public getCurrentTask(): TranscribeTask | AssistantTask | undefined {
+		return this.currentTask;
 	}
 }

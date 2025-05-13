@@ -62,6 +62,38 @@ It can even update the note's frontmatter, such as the title and tags. You just 
 
 Auralite can help you transform raw transcriptions into well-formatted text.
 
+### Transcription Model Selection
+
+Auralite now supports three transcription models from OpenAI. You can select which model to use in the plugin settings:
+
+- **whisper-1** (default):
+  - OpenAI's original open-source model.
+  - Fastest response time and generally most reliable for short messages and English.
+  - Tends to be more accurate for short, clear audio, and less likely to drop words at the start/end.
+  - Open-source and widely used, but may be less accurate for some non-English languages.
+- **gpt-4o-transcribe**:
+  - Newer, closed-source model from OpenAI.
+  - Claims improved accuracy, especially for languages where Whisper struggled.
+  - May drop words at the start/end of short messages, and is generally slower than whisper-1.
+  - No support for word-level timestamps or speaker recognition.
+  - Good for developers already using OpenAI's ecosystem and for cost-effective transcription.
+- **gpt-4o-mini-transcribe**:
+  - A lighter, more affordable version of gpt-4o-transcribe.
+  - Lower cost, but may be less accurate than the full gpt-4o-transcribe model.
+  - Useful for bulk or cost-sensitive use cases where perfect accuracy is not required.
+
+**Limitations (all models):**
+- Maximum file size: 25MB
+- No word-level timestamps or speaker diarization
+- Closed-source models (gpt-4o-*) may have privacy implications and less customizability
+
+**How to choose:**
+- For best speed and reliability, especially for short English audio, use **whisper-1**.
+- For improved accuracy in non-English languages, try **gpt-4o-transcribe**.
+- For lowest cost, use **gpt-4o-mini-transcribe**.
+
+You can change the transcription model in the Auralite plugin settings at any time.
+
 ### Transcribe
 
 To use the transcribe feature:
