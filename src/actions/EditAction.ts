@@ -9,6 +9,8 @@ import type {
 import { merge } from "three-way-merge";
 import { z } from "zod";
 import { Action, type ActionContext } from "./Action";
+import { DiffReviewView } from "@/components/DiffReviewView";
+import type { WorkspaceLeaf } from "obsidian";
 
 const prompt = removeWhitespace(`
     You are an AI assistant tasked with updating a file's content based on specific instructions. This task requires precision and attention to detail to ensure that only the relevant parts of the file are modified while maintaining the integrity of the rest of the content.
@@ -99,7 +101,27 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 			throw new Error("No updated content found");
 		}
 
-		await this.applyChanges(updatedContent, context);
+		// Show diff review view and await user decision
+		await new Promise<void>((resolve, reject) => {
+			const leaf = context.app.workspace.getLeaf("tab");
+			const view = new DiffReviewView(
+				leaf as WorkspaceLeaf,
+				this.fileContent ?? "",
+				updatedContent,
+				async () => {
+					try {
+						await this.applyChanges(updatedContent, context);
+						resolve();
+					} catch (e) {
+						reject(e);
+					}
+				},
+				() => {
+					reject(new Error("User rejected changes"));
+				},
+			);
+			leaf.open(view);
+		});
 	}
 
 	private extractUpdatedContent(responseContent: string): string | null {

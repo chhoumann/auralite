@@ -40,6 +40,11 @@
   },
   "type": "commonjs",
   "dependencies": {
+    "@codemirror/basic-setup": "^0.20.0",
+    "@codemirror/lang-markdown": "^6.3.2",
+    "@codemirror/merge": "^6.10.0",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.36.8",
     "@instructor-ai/instructor": "^1.7.0",
     "openai": "^4.98.0",
     "three-way-merge": "^0.1.0",
