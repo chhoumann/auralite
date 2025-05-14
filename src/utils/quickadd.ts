@@ -33,7 +33,8 @@ export function flattenQuickAddChoices(
 	const result: { choice: QuickAddChoice; fullPath: string }[] = [];
 	for (const choice of choices) {
 		const currentPath = [...parentPath, choice.name];
-		if (choice.type === "Capture" || choice.type === "Template") {
+		const invokableChoiceTypes = ["Capture", "Template", "Macro"];
+		if (invokableChoiceTypes.includes(choice.type)) {
 			result.push({ choice, fullPath: currentPath.join(" > ") });
 		} else if (choice.type === "Multi" && Array.isArray(choice.choices)) {
 			result.push(...flattenQuickAddChoices(choice.choices, currentPath));
