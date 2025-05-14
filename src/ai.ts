@@ -14,6 +14,7 @@ import { telemetry } from "./telemetry";
 import { TypedEvents } from "./types/TypedEvents";
 import { withTelemetry, type TelemetryContext } from "@/utils/withTelemetry";
 import { getOrCreateSessionId, generateRequestId } from "@/utils/session";
+import { flattenQuickAddChoices, type QuickAddPlugin } from "@/utils/quickadd";
 
 interface AIManagerEvents {
 	processingStarted: () => void;
@@ -151,8 +152,13 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 					(actionId) =>
 						` - ${actionId}: ${this.plugin.actionManager?.getAction(actionId)?.description}`,
 				);
+
+				// --- QuickAdd prompt enhancement ---
+				const quickAddSection = buildQuickAddPromptSection(this.plugin);
+				// --- End QuickAdd prompt enhancement ---
+
 				const actionsPrompt = removeWhitespace(
-					`The action to take. Here are the available actions:\n${actionsList.join("\n")}`,
+					`The action to take. Here are the available actions:\n${actionsList.join("\n")}${quickAddSection}`,
 				);
 
 				const possibleContexts = {
@@ -177,6 +183,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 							),
 						)
 						.optional()
+						.default([])
 						.describe(
 							`The necessary context to execute the action.\nOnly include the context that is necessary to execute the action.\nHere are the available contexts:\n${Object.entries(
 								possibleContexts,
@@ -643,4 +650,16 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 		this.abortController?.abort();
 		this.abortController = null;
 	}
+}
+
+function buildQuickAddPromptSection(plugin: AuralitePlugin): string {
+	const quickAddAction = plugin.actionManager.getAction("quickadd");
+	const quickAddPlugin = (plugin.app as import("obsidian").App).plugins?.plugins
+		?.quickadd as QuickAddPlugin | undefined;
+	if (!quickAddAction || !quickAddPlugin?.settings?.choices) return "";
+	const allQuickAddChoices = flattenQuickAddChoices(
+		quickAddPlugin.settings.choices,
+	);
+	if (allQuickAddChoices.length === 0) return "";
+	return `\nYou can invoke the following QuickAdd actions by name:\n${allQuickAddChoices.map(({ fullPath }) => `- ${fullPath}`).join("\n")}\nIf the user's request matches or is best handled by one of these, select the QuickAdd action and specify the corresponding choice name.`;
 }

@@ -1,5 +1,6 @@
 import Instructor from "@instructor-ai/instructor";
 import { Plugin, TFile } from "obsidian";
+import type { App } from "obsidian";
 import OpenAI from "openai";
 import { AudioRecorder } from "./AudioRecorder";
 import {
@@ -25,6 +26,7 @@ import { logger } from "./logging";
 import { AssistantTask } from "./tasks/AssistantTask";
 import { TranscribeTask } from "./tasks/TranscribeTask";
 import { telemetry } from "./telemetry";
+import { QuickAddAction } from "./actions/QuickAddAction";
 
 declare const __IS_DEV__: boolean;
 
@@ -62,6 +64,10 @@ export default class AuralitePlugin extends Plugin {
 		this.actionManager.registerAction(new TranscribeAction());
 		this.actionManager.registerAction(new WriteAction());
 		this.actionManager.registerAction(new EditAction());
+		// Only register QuickAddAction if the QuickAdd plugin is available
+		if ((this.app as App).plugins?.plugins?.quickadd) {
+			this.actionManager.registerAction(new QuickAddAction());
+		}
 	}
 
 	private initializeAIManager() {
