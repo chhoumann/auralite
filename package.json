@@ -21,7 +21,7 @@
     "esbuild-plugin-copy": "^2.1.1",
     "git-contributors": "^0.2.5",
     "obsidian": "^1.8.7",
-    "semantic-release": "^24.2.3"
+    "semantic-release": "^24.2.4"
   },
   "peerDependencies": {
     "typescript": "^5.5.3"
@@ -42,11 +42,11 @@
   "dependencies": {
     "@codemirror/basic-setup": "^0.20.0",
     "@codemirror/lang-markdown": "^6.3.2",
-    "@codemirror/merge": "^6.10.0",
+    "@codemirror/merge": "^6.10.1",
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.36.8",
     "@instructor-ai/instructor": "^1.7.0",
-    "openai": "^4.98.0",
+    "openai": "^4.100.0",
     "three-way-merge": "^0.1.0",
     "zod": "^3.24.4"
   }
