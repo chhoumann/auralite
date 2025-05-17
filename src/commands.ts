@@ -77,6 +77,24 @@ export function registerCommands(plugin: AuralitePlugin): void {
 				return true;
 			},
 		},
+		{
+			id: "toggle-chat-view",
+			name: "Toggle Chat View",
+			callback: () => {
+				// Check if the chat view is already open
+				const chatLeaves =
+					plugin.app.workspace.getLeavesOfType("auralite-chat-view");
+				if (chatLeaves.length > 0) {
+					// If open, close it
+					for (const leaf of chatLeaves) {
+						leaf.detach();
+					}
+				} else {
+					// If not open, open it
+					plugin.openChatView();
+				}
+			},
+		},
 	];
 
 	for (const cmd of commands) {

@@ -5,4 +5,5 @@
 @import './styles/_base.css';
 @import './styles/components/_floating-bar.css';
 @import './styles/components/_diff-view.css';
+@import './styles/components/_chat-view.css';
 @import './styles/_settings.css'; 

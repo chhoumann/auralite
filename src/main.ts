@@ -27,6 +27,8 @@ import { AssistantTask } from "./tasks/AssistantTask";
 import { TranscribeTask } from "./tasks/TranscribeTask";
 import { telemetry } from "./telemetry";
 import { QuickAddAction } from "./actions/QuickAddAction";
+import { ChatView, CHAT_VIEW_TYPE } from "./components/ChatView";
+import { ChatService } from "./components/ChatService";
 
 declare const __IS_DEV__: boolean;
 
@@ -39,6 +41,7 @@ export default class AuralitePlugin extends Plugin {
 	private silenceDetection?: SilenceDetection;
 	private currentTask?: TranscribeTask | AssistantTask;
 	public TranscribeTaskConstructor: typeof TranscribeTask = TranscribeTask;
+	private chatService!: ChatService;
 
 	override async onload() {
 		await this.loadSettings();
@@ -46,6 +49,35 @@ export default class AuralitePlugin extends Plugin {
 		this.setupPushToTalkEvents();
 		registerCommands(this);
 		this.addSettingTab(new AuraliteSettingsTab(this.app, this));
+
+		// Register Chat View
+		this.registerView(CHAT_VIEW_TYPE, (leaf) => new ChatView(leaf, this));
+
+		// Add chat ribbon icon
+		const chatIcon = this.addRibbonIcon(
+			"message-square",
+			"Open Auralite Chat",
+			() => {
+				this.openChatView();
+			},
+		);
+		chatIcon.addClass("auralite-chat-icon");
+
+		// Listen for new messages and update the icon
+		this.chatService.on("messageReceived", (message) => {
+			if (message.role === "assistant") {
+				// Show unread indicator if the chat view isn't active
+				const chatLeaf = this.app.workspace.getLeavesOfType(CHAT_VIEW_TYPE)[0];
+				if (
+					!chatLeaf ||
+					!chatLeaf.view ||
+					!this.app.workspace.activeLeaf ||
+					this.app.workspace.activeLeaf !== chatLeaf
+				) {
+					chatIcon.addClass("auralite-chat-unread");
+				}
+			}
+		});
 
 		// Initialize telemetry based on settings
 		this.toggleTelemetry(this.settings.TELEMETRY_ENABLED);
@@ -55,6 +87,7 @@ export default class AuralitePlugin extends Plugin {
 		this.initializeActionManager();
 		this.initializeAIManager();
 		this.initializeSilenceDetection();
+		this.initializeChatService();
 	}
 
 	private initializeActionManager() {
@@ -307,5 +340,36 @@ export default class AuralitePlugin extends Plugin {
 
 	public isAssistantActive(): boolean {
 		return this.currentTask instanceof AssistantTask;
+	}
+
+	public async openChatView() {
+		const leaf = this.app.workspace.getRightLeaf(false);
+		if (!leaf) return;
+		await leaf.setViewState({
+			type: CHAT_VIEW_TYPE,
+			active: true,
+		});
+		this.app.workspace.revealLeaf(leaf);
+
+		// Connect the chat view to the chat service
+		const view = leaf.view as ChatView;
+		if (view && this.chatService) {
+			this.chatService.setView(view);
+			view.setChatService(this.chatService);
+		}
+
+		// Clear unread indicator when opening the chat view
+		const chatIcon = document.querySelector(".auralite-chat-icon");
+		if (chatIcon) {
+			chatIcon.classList.remove("auralite-chat-unread");
+		}
+	}
+
+	private initializeChatService() {
+		this.chatService = new ChatService(this);
+	}
+
+	public getAIManager(): AIManager {
+		return this.aiManager;
 	}
 }
