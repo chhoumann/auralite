@@ -16,7 +16,7 @@ const options = Object.freeze({
 	banner: {
 		js: banner,
 	},
-	entryPoints: ["src/main.ts"],
+	entryPoints: ["src/main.ts", "src/styles.css"],
 	bundle: true,
 	define: {
 		__IS_DEV__: (!prod).toString(),
@@ -43,6 +43,7 @@ const options = Object.freeze({
 	sourcemap: prod ? false : "inline",
 	treeShaking: true,
 	outdir,
+	outbase: "src",
 	plugins: [
 		copy({
 			assets: [
@@ -50,10 +51,6 @@ const options = Object.freeze({
 					from: ["manifest.json"],
 					to: ["manifest.json"],
 				},
-				{
-					from: ["src/styles.css"],
-					to: ["styles.css"]
-				}
 			],
 		}),
 	],

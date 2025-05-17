@@ -1,0 +1,21 @@
+/* Base styles and variables */
+
+/* Diff color variables */
+:root {
+	--diff-added-bg: #e6f4ea;
+	--diff-added-text: #256029;
+	--diff-removed-bg: #fbeaea;
+	--diff-removed-text: #a33a3a;
+}
+.theme-dark {
+	--diff-added-bg: #22372b;
+	--diff-added-text: #a6e9b3;
+	--diff-removed-bg: #3a2323;
+	--diff-removed-text: #f6b3b3;
+}
+.theme-light {
+	--diff-added-bg: #e6f4ea;
+	--diff-added-text: #256029;
+	--diff-removed-bg: #fbeaea;
+	--diff-removed-text: #a33a3a;
+} 

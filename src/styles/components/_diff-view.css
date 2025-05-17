@@ -1,0 +1,253 @@
+/* Diff View Component Styles */
+
+/* Diff Review View Styles */
+.auralite-diff-container {
+	font-family: var(--font-monospace, monospace);
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	padding: 12px;
+	margin-bottom: 16px;
+	max-height: 400px;
+	overflow-y: auto;
+}
+.auralite-diff-row {
+	display: flex;
+	gap: 8px;
+	white-space: pre;
+}
+.auralite-diff-unchanged {
+	color: var(--text-normal);
+}
+.auralite-diff-removed {
+	background: var(--diff-removed-bg);
+	color: var(--diff-removed-text);
+	text-decoration: line-through;
+	padding: 0 2px;
+}
+.auralite-diff-added {
+	background: var(--diff-added-bg);
+	color: var(--diff-added-text);
+	padding: 0 2px;
+}
+.auralite-diff-actions {
+	display: flex;
+	gap: 12px;
+	margin-top: 12px;
+}
+
+.auralite-diff-cm6-container {
+	min-height: 400px;
+	height: 400px;
+	max-height: 70vh;
+	overflow: auto;
+	background: var(--background-secondary);
+	border-radius: 12px;
+	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+	display: flex;
+	flex-direction: column;
+	justify-content: stretch;
+	margin-bottom: 20px;
+}
+
+.auralite-diff-preview-wrapper {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 24px;
+	width: 100%;
+	background: var(--background-secondary);
+	border-radius: 12px;
+	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+	padding: 0;
+	margin-bottom: 20px;
+	min-height: 400px;
+	height: 400px;
+	max-height: 70vh;
+	align-items: stretch;
+}
+@media (max-width: 900px) {
+	.auralite-diff-preview-wrapper {
+		grid-template-columns: 1fr;
+		gap: 0;
+		padding: 0;
+		height: auto;
+		min-height: 0;
+		max-height: none;
+	}
+}
+.auralite-diff-preview-col {
+	display: flex;
+	flex-direction: column;
+	background: var(--background-primary);
+	border-radius: 8px;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+	padding: 18px 14px 14px 14px;
+	min-width: 0;
+	border: 1px solid var(--background-modifier-border);
+	height: 100%;
+	min-height: 0;
+	max-height: 100%;
+	overflow-y: auto;
+	overflow-x: hidden;
+	word-break: break-word;
+	white-space: pre-wrap;
+}
+.auralite-diff-preview-label {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--text-faint);
+	margin-bottom: 10px;
+	letter-spacing: 0.5px;
+	text-transform: uppercase;
+	text-align: left;
+}
+
+.auralite-diff-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 18px;
+	gap: 12px;
+}
+.auralite-diff-header h2 {
+	font-size: 1.25rem;
+	font-weight: 700;
+	margin: 0;
+	color: var(--text-normal);
+}
+.auralite-diff-toggle {
+	background: var(--background-modifier-hover);
+	border: none;
+	border-radius: 6px;
+	padding: 6px 12px;
+	cursor: pointer;
+	color: var(--text-muted);
+	font-size: 1rem;
+	transition: background 0.15s, color 0.15s;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+.auralite-diff-toggle:hover,
+.auralite-diff-toggle:focus {
+	background: var(--background-modifier-active);
+	color: var(--text-normal);
+}
+
+.auralite-diff-actions {
+	display: flex;
+	gap: 16px;
+	margin-top: 18px;
+	justify-content: flex-end;
+}
+.auralite-diff-actions button {
+	border-radius: 6px;
+	border: none;
+	padding: 8px 18px;
+	font-size: 1rem;
+	font-weight: 600;
+	cursor: pointer;
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+	transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+.auralite-diff-actions button.mod-cta {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+.auralite-diff-actions button:hover,
+.auralite-diff-actions button:focus {
+	background: var(--background-modifier-active);
+	color: var(--text-normal);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.auralite-diff-actions button.mod-cta:hover,
+.auralite-diff-actions button.mod-cta:focus {
+	background: var(--interactive-accent-hover);
+	color: var(--text-on-accent);
+}
+
+/* CodeMirror MergeView custom tweaks for side-by-side clarity */
+.cm-mergeView {
+	border-radius: 8px;
+	background: var(--background-primary);
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+	height: 100%;
+	min-height: 0;
+	max-height: 100%;
+}
+.cm-mergeView .cm-merge-a,
+.cm-mergeView .cm-merge-b {
+	background: none;
+	height: 100%;
+	min-height: 0;
+	max-height: 100%;
+	overflow-y: auto;
+}
+.cm-mergeView .cm-scroller {
+	height: 100%;
+	min-height: 0;
+	max-height: 100%;
+	overflow-y: auto;
+}
+.cm-mergeView .cm-editor {
+	font-size: 15px;
+	line-height: 1.6;
+	background: none;
+}
+.cm-mergeView .cm-changedLine {
+	background: rgba(255, 235, 59, 0.13);
+}
+.cm-mergeView .cm-deletedLine {
+	background: var(--diff-removed-bg);
+	text-decoration: line-through;
+}
+.cm-mergeView .cm-insertedLine {
+	background: var(--diff-added-bg);
+}
+
+.auralite-diff-cm6-container.auralite-diff-preview-mode {
+	display: block;
+	height: 80vh;
+	min-height: 0;
+	max-height: none;
+	padding: 0;
+}
+.auralite-diff-preview-wrapper {
+	width: 100%;
+	height: 80vh;
+	min-height: 0;
+	max-height: 80vh;
+	overflow: hidden;
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 24px;
+	background: var(--background-secondary);
+	border-radius: 12px;
+	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+	margin-bottom: 20px;
+	align-items: stretch;
+}
+@media (max-width: 900px) {
+	.auralite-diff-preview-wrapper {
+		grid-template-columns: 1fr;
+		gap: 0;
+		height: auto;
+		min-height: 0;
+		max-height: none;
+	}
+}
+.auralite-diff-preview-col {
+	height: 100%;
+	min-height: 0;
+	max-height: none;
+	overflow-y: auto;
+	overflow-x: hidden;
+	word-break: break-word;
+	white-space: pre-wrap;
+	display: flex;
+	flex-direction: column;
+}
+.auralite-diff-preview-col.scroll-sync {
+	/* For JS to target for scroll syncing */
+} 
