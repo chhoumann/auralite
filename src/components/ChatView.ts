@@ -18,15 +18,15 @@ export class ChatView extends ItemView {
 		if (plugin) this.plugin = plugin;
 	}
 
-	getViewType() {
+	override getViewType() {
 		return CHAT_VIEW_TYPE;
 	}
 
-	getDisplayText() {
+	override getDisplayText() {
 		return "Auralite Chat";
 	}
 
-	async onOpen() {
+	override async onOpen() {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass("auralite-chat-view");
@@ -186,7 +186,7 @@ export class ChatView extends ItemView {
 		}
 	}
 
-	async onClose() {
+	override async onClose() {
 		this.contentEl.empty();
 		this.inputEl = null;
 		this.messagesEl = null;

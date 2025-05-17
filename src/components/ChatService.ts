@@ -26,6 +26,51 @@ export class ChatService extends TypedEvents<ChatServiceEvents> {
 		super();
 		this.plugin = plugin;
 		this.aiManager = plugin.getAIManager();
+		// Listen to AI manager events so voice interactions and action status are reflected in the chat
+		this.initializeAIManagerListeners();
+	}
+
+	/**
+	 * Attach listeners to the AIManager so that voice-driven interactions and action status updates
+	 * automatically appear in the chat timeline. This keeps the chat history in sync with everything
+	 * that happens during a session, regardless of whether the interaction originated from typing or
+	 * speaking.
+	 */
+	private initializeAIManagerListeners() {
+		// User finished speaking – add their transcription as a user message
+		this.aiManager.on("transcriptionComplete", (transcription: string) => {
+			logger.debug("Adding transcription to chat", { transcription });
+			this.addMessage("user", transcription);
+		});
+
+		// Show a typing indicator while the assistant is thinking
+		this.aiManager.on("processingStarted", () => {
+			this.trigger("processingStarted");
+			this.view?.startProcessing();
+		});
+
+		this.aiManager.on("processingComplete", () => {
+			this.trigger("processingComplete");
+			this.view?.endProcessing();
+		});
+
+		// High level action lifecycle updates
+		this.aiManager.on("actionPlanned", (action: string) => {
+			this.addMessage("assistant", `Planning to execute **${action}** …`);
+		});
+
+		this.aiManager.on("actionExecutionStarted", (action: string) => {
+			this.addMessage("assistant", `Executing **${action}** …`);
+		});
+
+		this.aiManager.on("actionExecutionComplete", (action: string) => {
+			this.addMessage("assistant", `Completed **${action}**.`);
+		});
+
+		// Surface errors directly in the chat so users know what happened
+		this.aiManager.on("error", (error: Error) => {
+			this.addMessage("assistant", `⚠️ An error occurred: ${error.message}`);
+		});
 	}
 
 	public setView(view: ChatView) {
@@ -58,24 +103,29 @@ export class ChatService extends TypedEvents<ChatServiceEvents> {
 					.describe("A helpful, concise response to the user's message"),
 			});
 
-			// Convert message history to OpenAI chat format
+			// Build chat history in the format expected by OpenAI
+			const historyMessages: ChatCompletionMessageParam[] = this.messages.map(
+				(m) =>
+					({
+						role: m.role,
+						content: m.content,
+					}) as ChatCompletionMessageParam,
+			);
+
 			const chatMessages: ChatCompletionMessageParam[] = [
 				{
 					role: "system",
 					content:
 						"You are Auralite, a helpful AI assistant for Obsidian. Provide concise, clear, and helpful responses. When referring to actions or functionality related to the plugin, explain how they can be used.",
 				},
-				...this.messages.map((m) => ({
-					role: m.role === "user" ? "user" : "assistant",
-					content: m.content,
-				})),
+				...historyMessages,
 			];
 
 			// Get AI response
-			const response = await this.aiManager.createInstructorChatCompletion(
+			const response = (await this.aiManager.createInstructorChatCompletion(
 				responseSchema,
 				chatMessages,
-			);
+			)) as z.infer<typeof responseSchema>;
 
 			// Add assistant message
 			this.addMessage("assistant", response.response);
