@@ -17,150 +17,223 @@
     border: 2px solid var(--background-primary);
 }
 
-/* Main chat view styles */
+/* --- Auralite Chat: Clean, Minimal, Native Obsidian Look --- */
+
+/* Remove custom font, use Obsidian default */
+.auralite-chat-view {
+    background: var(--background-primary);
+    color: var(--text-normal);
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Remove large heading */
 .auralite-chat-header {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
-    padding: 10px 16px;
-    border-bottom: 1px solid var(--background-modifier-border);
+    padding: 8px 12px 0 12px;
+    border-bottom: none;
+    background: none;
+    font-size: 1rem;
+    font-weight: 400;
+    letter-spacing: 0;
+}
+.auralite-chat-header h2 {
+    display: none;
 }
 
 .auralite-chat-clear-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: var(--background-secondary);
+    color: var(--text-muted);
+    border: 1px solid var(--background-modifier-border);
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 4px;
-    background-color: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
-    border: none;
-    opacity: 0.7;
-    transition: all 0.2s ease;
+    transition: background 0.15s, color 0.15s, border 0.15s;
+    box-shadow: none;
+    padding: 0;
 }
-
 .auralite-chat-clear-btn:hover {
-    opacity: 1;
-    background-color: var(--background-modifier-hover);
-    color: var(--text-normal);
+    background: var(--background-modifier-hover);
+    color: var(--interactive-accent);
+    border-color: var(--interactive-accent);
 }
 
+/* Chat messages area */
 .auralite-chat-messages {
     display: flex;
     flex-direction: column;
-    padding: 16px;
+    gap: 8px;
+    padding: 8px 12px 56px 12px;
     overflow-y: auto;
-    height: calc(100% - 120px);
-    gap: 12px;
+    height: calc(100% - 48px);
+    scroll-behavior: auto;
+}
+.auralite-chat-messages::-webkit-scrollbar {
+    width: 8px;
+}
+.auralite-chat-messages::-webkit-scrollbar-thumb {
+    background: var(--background-modifier-border);
+    border-radius: 4px;
+}
+.auralite-chat-messages::-webkit-scrollbar-track {
+    background: transparent;
 }
 
+/* Message bubbles */
 .auralite-chat-message {
-    padding: 12px 16px;
-    border-radius: 12px;
-    max-width: 80%;
-    word-break: break-word;
-    line-height: 1.5;
+    max-width: 70%;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 1rem;
+    line-height: 1.6;
     position: relative;
+    opacity: 0;
+    transform: translateY(8px);
+    animation: chat-bubble-in 0.18s cubic-bezier(.4,1.4,.6,1) forwards;
+    transition: box-shadow 0.15s;
+    box-shadow: none;
+    border: none;
 }
-
+@keyframes chat-bubble-in {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
 .auralite-chat-message-user {
     align-self: flex-end;
-    background-color: var(--interactive-accent);
+    background: var(--background-modifier-accent);
     color: var(--text-on-accent);
     border-bottom-right-radius: 4px;
+    border-top-right-radius: 12px;
+    border: 1px solid var(--background-modifier-border);
 }
-
 .auralite-chat-message-assistant {
     align-self: flex-start;
-    background-color: var(--background-secondary);
+    background: var(--background-secondary);
     color: var(--text-normal);
     border-bottom-left-radius: 4px;
+    border-top-left-radius: 12px;
+    border: 1px solid var(--background-modifier-border);
 }
 
+/* Action/event indicator (single, minimal, left-aligned) */
+.auralite-chat-action-indicator {
+    align-self: flex-start;
+    background: var(--background-modifier-hover);
+    color: var(--text-muted);
+    border-radius: 7px;
+    padding: 6px 12px;
+    font-size: 0.97rem;
+    font-weight: 500;
+    margin: 0 0 0 0;
+    border: 1px solid var(--background-modifier-border);
+    box-shadow: none;
+    letter-spacing: 0;
+    display: block;
+    min-width: 0;
+    max-width: 80%;
+    transition: background 0.15s, color 0.15s;
+}
+
+/* Input bar (fixed, minimal, no shadow, no gradient) */
 .auralite-chat-input-container {
     display: flex;
-    padding: 16px;
+    gap: 6px;
+    padding: 8px 12px;
     border-top: 1px solid var(--background-modifier-border);
-    gap: 8px;
+    background: var(--background-primary);
     position: absolute;
-    bottom: 0;
     left: 0;
     right: 0;
-    background-color: var(--background-primary);
+    bottom: 0;
+    z-index: 2;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    box-shadow: none;
 }
-
 .auralite-chat-input {
     flex: 1;
-    border-radius: 20px;
-    padding: 8px 16px;
-    background-color: var(--background-secondary);
+    border-radius: 7px;
+    padding: 8px 14px;
+    background: var(--background-secondary);
     border: 1px solid var(--background-modifier-border);
     color: var(--text-normal);
+    font-size: 1rem;
+    transition: border 0.15s, box-shadow 0.15s;
+    box-shadow: none;
 }
-
 .auralite-chat-input:focus {
-    box-shadow: 0 0 0 2px var(--interactive-accent);
     border-color: var(--interactive-accent);
+    box-shadow: 0 0 0 1.5px var(--interactive-accent);
     outline: none;
 }
-
 .auralite-chat-send-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 7px;
+    background: var(--background-modifier-accent);
+    color: var(--text-on-accent);
+    border: 1px solid var(--background-modifier-border);
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background-color: var(--interactive-accent);
-    color: var(--text-on-accent);
+    font-size: 1.1rem;
     cursor: pointer;
-    border: none;
+    box-shadow: none;
+    transition: background 0.15s, border 0.15s, color 0.15s;
+    padding: 0;
 }
-
 .auralite-chat-send-btn:hover {
-    background-color: var(--interactive-accent-hover);
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-color: var(--interactive-accent);
 }
 
+/* Typing indicator (minimal) */
 .auralite-chat-typing-indicator {
     display: flex;
     gap: 4px;
-    padding: 8px;
-    margin-top: 8px;
+    padding: 4px 10px;
+    margin-top: 4px;
     align-self: flex-start;
+    background: var(--background-modifier-hover);
+    border-radius: 7px;
+    min-width: 32px;
+    box-shadow: none;
 }
-
 .auralite-chat-typing-dot {
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
-    background-color: var(--text-muted);
-    animation: typing-animation 1.4s infinite ease-in-out;
+    background: var(--interactive-accent);
+    opacity: 0.7;
+    animation: typing-dot-bounce 1.1s infinite cubic-bezier(.4,1.4,.6,1);
 }
-
-.auralite-chat-typing-dot:nth-child(1) {
-    animation-delay: 0s;
-}
-
 .auralite-chat-typing-dot:nth-child(2) {
-    animation-delay: 0.2s;
+    animation-delay: 0.12s;
 }
-
 .auralite-chat-typing-dot:nth-child(3) {
-    animation-delay: 0.4s;
+    animation-delay: 0.24s;
 }
-
-@keyframes typing-animation {
-    0%, 60%, 100% {
+@keyframes typing-dot-bounce {
+    0%, 80%, 100% {
         transform: translateY(0);
-        opacity: 0.6;
+        opacity: 0.7;
     }
-    30% {
+    40% {
         transform: translateY(-4px);
         opacity: 1;
     }
 }
+/* --- End of Auralite Chat Minimal Styles --- */
 
 /* Add chat view specific styles here when implementing them */
 /* Currently there are no specific styles for the chat view component in the main CSS file */ 

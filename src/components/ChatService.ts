@@ -63,8 +63,46 @@ export class ChatService extends TypedEvents<ChatServiceEvents> {
 			this.addMessage("assistant", `Executing **${action}** …`);
 		});
 
-		this.aiManager.on("actionExecutionComplete", (action: string) => {
+		this.aiManager.on("actionExecutionComplete", async (action: string) => {
 			this.addMessage("assistant", `Completed **${action}**.`);
+
+			// Generate a summary message for the user about what was done
+			try {
+				const summarySchema = z.object({
+					summary: z
+						.string()
+						.describe(
+							"A concise, user-facing summary of what was just done. Use natural language, not code or markdown.",
+						),
+				});
+				const chatHistory = this.getMessages().map((m) => ({
+					role: m.role,
+					content: m.content,
+				})) as ChatCompletionMessageParam[];
+				const summaryPrompt: ChatCompletionMessageParam[] = [
+					{
+						role: "system",
+						content:
+							"You are Auralite, an assistant that summarizes actions for the user in a friendly, concise way. Only summarize the most recent action that was just completed.",
+					},
+					...chatHistory,
+					{
+						role: "user",
+						content:
+							"Please summarize for the user what was just done in a single, friendly sentence.",
+					},
+				];
+				const summaryResp =
+					(await this.aiManager.createInstructorChatCompletion(
+						summarySchema,
+						summaryPrompt,
+					)) as z.infer<typeof summarySchema>;
+				if (summaryResp && typeof summaryResp.summary === "string") {
+					this.addMessage("assistant", summaryResp.summary);
+				}
+			} catch (e) {
+				logger.error("Failed to generate action summary", { error: e });
+			}
 		});
 
 		// Surface errors directly in the chat so users know what happened

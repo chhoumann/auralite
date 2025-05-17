@@ -31,11 +31,8 @@ export class ChatView extends ItemView {
 		contentEl.empty();
 		contentEl.addClass("auralite-chat-view");
 
-		// Header with title and clear button
+		// Header with clear button only
 		const header = contentEl.createEl("div", { cls: "auralite-chat-header" });
-		header.createEl("h2", { text: "Auralite Chat" });
-
-		// Add clear button
 		const clearBtn = header.createEl("button", {
 			cls: "auralite-chat-clear-btn",
 			attr: { title: "Clear chat history" },
@@ -71,12 +68,25 @@ export class ChatView extends ItemView {
 		if (!this.messagesEl) return;
 		this.messagesEl.empty();
 
-		for (const msg of this.messages) {
+		for (let i = 0; i < this.messages.length; i++) {
+			const msg = this.messages[i];
+			const isActionIndicator =
+				msg.role === "assistant" &&
+				/^(Planning to execute|Executing|Completed|⚠️ An error occurred:)/.test(
+					msg.content.trim(),
+				);
+
+			if (isActionIndicator) {
+				const indicator = this.messagesEl.createEl("div", {
+					cls: "auralite-chat-action-indicator",
+				});
+				MarkdownRenderer.renderMarkdown(msg.content, indicator, "", this);
+				continue;
+			}
+
 			const msgEl = this.messagesEl.createEl("div", {
 				cls: `auralite-chat-message auralite-chat-message-${msg.role}`,
 			});
-
-			// Use markdown renderer for assistant messages to support formatting
 			if (msg.role === "assistant") {
 				MarkdownRenderer.renderMarkdown(msg.content, msgEl, "", this);
 			} else {
