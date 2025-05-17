@@ -6,7 +6,12 @@ import type { ChatService } from "./ChatService";
 export const CHAT_VIEW_TYPE = "auralite-chat-view";
 
 export class ChatView extends ItemView {
-	private messages: { role: "user" | "assistant"; content: string }[] = [];
+	private messages: {
+		role: "user" | "assistant" | "action";
+		content: string;
+		actionId?: string;
+		context?: string;
+	}[] = [];
 	private inputEl: HTMLInputElement | null = null;
 	private messagesEl: HTMLDivElement | null = null;
 	private isProcessing: boolean = false;
@@ -70,17 +75,20 @@ export class ChatView extends ItemView {
 
 		for (let i = 0; i < this.messages.length; i++) {
 			const msg = this.messages[i];
-			const isActionIndicator =
-				msg.role === "assistant" &&
-				/^(Planning to execute|Executing|Completed|⚠️ An error occurred:)/.test(
-					msg.content.trim(),
-				);
+			const isActionIndicator = msg.role === "action";
 
 			if (isActionIndicator) {
-				const indicator = this.messagesEl.createEl("div", {
+				const detailsEl = this.messagesEl.createEl("details", {
 					cls: "auralite-chat-action-indicator",
 				});
-				MarkdownRenderer.renderMarkdown(msg.content, indicator, "", this);
+				const summaryEl = detailsEl.createEl("summary");
+				summaryEl.setText(msg.content);
+				if (msg.context) {
+					const pre = detailsEl.createEl("pre", {
+						cls: "auralite-action-context",
+					});
+					pre.setText(msg.context);
+				}
 				continue;
 			}
 
@@ -155,8 +163,13 @@ export class ChatView extends ItemView {
 	}
 
 	// Method to be called when integrating with actual AI
-	public async addMessage(role: "user" | "assistant", content: string) {
-		this.messages.push({ role, content });
+	public async addMessage(
+		role: "user" | "assistant" | "action",
+		content: string,
+		actionId?: string,
+		context?: string,
+	) {
+		this.messages.push({ role, content, actionId, context });
 		this.renderMessages();
 	}
 

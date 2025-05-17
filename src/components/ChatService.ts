@@ -8,16 +8,26 @@ import { z } from "zod";
 
 interface ChatServiceEvents {
 	messageReceived: (message: {
-		role: "user" | "assistant";
+		role: "user" | "assistant" | "action";
 		content: string;
+		actionId?: string;
+		context?: string;
 	}) => void;
 	processingStarted: () => void;
 	processingComplete: () => void;
 	error: (error: Error) => void;
 }
 
+interface ChatMessage {
+	role: "user" | "assistant" | "action";
+	content: string;
+	actionId?: string;
+	context?: string;
+}
+
 export class ChatService extends TypedEvents<ChatServiceEvents> {
-	private messages: { role: "user" | "assistant"; content: string }[] = [];
+	private messages: ChatMessage[] = [];
+	private actionMessageIndex: Map<string, number> = new Map();
 	private plugin: AuralitePlugin;
 	private aiManager: AIManager;
 	private view: ChatView | null = null;
@@ -55,16 +65,33 @@ export class ChatService extends TypedEvents<ChatServiceEvents> {
 		});
 
 		// High level action lifecycle updates
-		this.aiManager.on("actionPlanned", (action: string) => {
-			this.addMessage("assistant", `Planning to execute **${action}** …`);
+		this.aiManager.on("actionPlanned", (action: string, contexts: string[]) => {
+			const rawDesc = this.plugin.actionManager.getAction(action)?.description;
+			const displayName = rawDesc ? rawDesc.split("(")[0].trim() : action;
+			const id = `${action}-${Date.now()}`;
+			const content = `⚡ ${displayName} – in progress`;
+			this.addMessage("action", content, id, JSON.stringify(contexts, null, 2));
+			// Store index for later update
+			this.actionMessageIndex.set(action, this.messages.length - 1);
 		});
 
-		this.aiManager.on("actionExecutionStarted", (action: string) => {
-			this.addMessage("assistant", `Executing **${action}** …`);
-		});
+		// Remove separate executing indicator
+		this.aiManager.on("actionExecutionStarted", () => {});
 
 		this.aiManager.on("actionExecutionComplete", async (action: string) => {
-			this.addMessage("assistant", `Completed **${action}**.`);
+			// Update the existing action line
+			const idx = this.actionMessageIndex.get(action);
+			if (idx !== undefined) {
+				const line = this.messages[idx];
+				if (line) {
+					const rawDesc2 =
+						this.plugin.actionManager.getAction(action)?.description;
+					const displayName = rawDesc2 ? rawDesc2.split("(")[0].trim() : action;
+					line.content = `✔ ${displayName} – done`;
+				}
+			}
+
+			this.addMessage("assistant", `Here's what was done for **${action}**:`);
 
 			// Generate a summary message for the user about what was done
 			try {
@@ -75,10 +102,13 @@ export class ChatService extends TypedEvents<ChatServiceEvents> {
 							"A concise, user-facing summary of what was just done. Use natural language, not code or markdown.",
 						),
 				});
-				const chatHistory = this.getMessages().map((m) => ({
-					role: m.role,
-					content: m.content,
-				})) as ChatCompletionMessageParam[];
+				const chatHistory = this.getMessages().map((m) => {
+					const role = m.role === "user" ? "user" : "assistant";
+					return {
+						role,
+						content: m.content,
+					} as ChatCompletionMessageParam;
+				});
 				const summaryPrompt: ChatCompletionMessageParam[] = [
 					{
 						role: "system",
@@ -143,11 +173,13 @@ export class ChatService extends TypedEvents<ChatServiceEvents> {
 
 			// Build chat history in the format expected by OpenAI
 			const historyMessages: ChatCompletionMessageParam[] = this.messages.map(
-				(m) =>
-					({
-						role: m.role,
+				(m) => {
+					const role = m.role === "user" ? "user" : "assistant"; // map 'assistant' and 'action' to assistant
+					return {
+						role,
 						content: m.content,
-					}) as ChatCompletionMessageParam,
+					} as ChatCompletionMessageParam;
+				},
 			);
 
 			const chatMessages: ChatCompletionMessageParam[] = [
@@ -182,8 +214,13 @@ export class ChatService extends TypedEvents<ChatServiceEvents> {
 		}
 	}
 
-	private addMessage(role: "user" | "assistant", content: string) {
-		const message = { role, content };
+	private addMessage(
+		role: "user" | "assistant" | "action",
+		content: string,
+		actionId?: string,
+		context?: string,
+	) {
+		const message: ChatMessage = { role, content, actionId, context };
 		this.messages.push(message);
 		this.trigger("messageReceived", message);
 

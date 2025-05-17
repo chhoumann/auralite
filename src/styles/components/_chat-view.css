@@ -236,4 +236,20 @@
 /* --- End of Auralite Chat Minimal Styles --- */
 
 /* Add chat view specific styles here when implementing them */
-/* Currently there are no specific styles for the chat view component in the main CSS file */ 
+/* Currently there are no specific styles for the chat view component in the main CSS file */
+
+/* Action context styling */
+.auralite-chat-action-indicator summary {
+    list-style: none;
+    cursor: pointer;
+}
+.auralite-chat-action-indicator[open] {
+    background: var(--background-secondary);
+}
+.auralite-action-context {
+    margin: 6px 0 0 0;
+    padding: 6px 10px;
+    background: var(--background-primary-alt);
+    border-radius: 5px;
+    white-space: pre-wrap;
+} 
