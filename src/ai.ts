@@ -661,5 +661,5 @@ function buildQuickAddPromptSection(plugin: AuralitePlugin): string {
 		quickAddPlugin.settings.choices,
 	);
 	if (allQuickAddChoices.length === 0) return "";
-	return `\nYou can invoke the following QuickAdd actions by name:\n${allQuickAddChoices.map(({ fullPath }) => `- ${fullPath}`).join("\n")}\nIf the user's request matches or is best handled by one of these, select the QuickAdd action and specify the corresponding choice name.`;
+	return `\nYou can invoke the following QuickAdd actions by name:\n${allQuickAddChoices.map(({ fullPath }) => `- ${fullPath}`).join("\n")}\nIf the user's request matches or is best handled by one of these, select the QuickAdd action and specify the corresponding choice name.\nIf the user's request explicitly mentions a QuickAdd action, select the QuickAdd action and specify the corresponding choice name.`;
 }
