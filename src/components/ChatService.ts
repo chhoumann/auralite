@@ -88,10 +88,9 @@ export class ChatService extends TypedEvents<ChatServiceEvents> {
 						this.plugin.actionManager.getAction(action)?.description;
 					const displayName = rawDesc2 ? rawDesc2.split("(")[0].trim() : action;
 					line.content = `✔ ${displayName} – done`;
+					this.view?.refresh();
 				}
 			}
-
-			this.addMessage("assistant", `Here's what was done for **${action}**:`);
 
 			// Generate a summary message for the user about what was done
 			try {
@@ -113,13 +112,13 @@ export class ChatService extends TypedEvents<ChatServiceEvents> {
 					{
 						role: "system",
 						content:
-							"You are Auralite, an assistant that summarizes actions for the user in a friendly, concise way. Only summarize the most recent action that was just completed.",
+							"You are Auralite, a helpful assistant integrated in Obsidian. In one friendly sentence, tell the user what *we* just accomplished together based on the most recently completed action.",
 					},
 					...chatHistory,
 					{
 						role: "user",
 						content:
-							"Please summarize for the user what was just done in a single, friendly sentence.",
+							"Summarize in one friendly sentence what we just accomplished.",
 					},
 				];
 				const summaryResp =

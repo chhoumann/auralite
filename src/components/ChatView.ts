@@ -82,7 +82,7 @@ export class ChatView extends ItemView {
 					cls: "auralite-chat-action-indicator",
 				});
 				const summaryEl = detailsEl.createEl("summary");
-				summaryEl.setText(msg.content);
+				MarkdownRenderer.renderMarkdown(msg.content, summaryEl, "", this);
 				if (msg.context) {
 					const pre = detailsEl.createEl("pre", {
 						cls: "auralite-action-context",
@@ -213,5 +213,10 @@ export class ChatView extends ItemView {
 		this.contentEl.empty();
 		this.inputEl = null;
 		this.messagesEl = null;
+	}
+
+	// Public method to force a re-render from outside
+	public refresh() {
+		this.renderMessages();
 	}
 }
