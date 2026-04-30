@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "postinstall": "python3 -m pip install -r requirements.txt",
     "build": "python3 -m pip install -r requirements.txt && python3 -m mkdocs build"
   },
   "engines": {
