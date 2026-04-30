@@ -175,3 +175,4 @@ dist
 .DS_Store
 .aider*
 docs/venv
+docs/site

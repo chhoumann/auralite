@@ -1,0 +1,11 @@
+{
+  "name": "auralite-docs",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "python3 -m pip install -r requirements.txt && python3 -m mkdocs build"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
