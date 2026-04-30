@@ -11,7 +11,7 @@ export class TranscribeAction extends Action<
 	typeof TranscribeAction.inputSchema
 > {
 	readonly description = "Format transcribed audio to be more readable.";
-	readonly usesLLM = false;
+	override readonly usesLLM = false;
 
 	static inputSchema = z.object({
 		transcription: z

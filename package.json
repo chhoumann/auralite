@@ -31,9 +31,9 @@
   "scripts": {
     "dev": "bun ./esbuild.config.mjs",
     "build": "bun ./esbuild.config.mjs production",
-    "lint": "bunx biome lint src version-bump.ts",
-    "format": "bunx biome format src version-bump.ts --write",
-    "check": "bunx @biomejs/biome check --write src version-bump.ts && bun run type-check",
+    "lint": "biome lint src version-bump.ts",
+    "format": "biome format src version-bump.ts --write",
+    "check": "biome check --write src version-bump.ts && bun run type-check",
     "type-check": "bun tsc --noEmit",
     "version": "bun ./version-bump.ts && git add manifest.json versions.json",
     "semantic-release": "semantic-release"

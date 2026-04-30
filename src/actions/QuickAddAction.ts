@@ -1,12 +1,8 @@
 import { logger } from "@/logging";
 import { removeWhitespace } from "@/utils";
+import { type QuickAddChoice, flattenQuickAddChoices } from "@/utils/quickadd";
 import { z } from "zod";
 import { Action, type ActionContext } from "./Action";
-import {
-	flattenQuickAddChoices,
-	type QuickAddChoice,
-	type QuickAddPlugin,
-} from "@/utils/quickadd";
 
 // Utility: Extract variable names from a string (supports {{VALUE}} and {{VALUE:varName}})
 function extractVariablesFromString(str: string): Set<string> {
@@ -77,7 +73,7 @@ export class QuickAddAction extends Action<typeof QuickAddAction.inputSchema> {
 		context: ActionContext,
 	): Promise<void> {
 		const { app, results } = context;
-		const quickAdd = app.plugins.plugins.quickadd as QuickAddPlugin | undefined;
+		const quickAdd = app.plugins.plugins.quickadd;
 		if (!quickAdd || !quickAdd.api || !quickAdd.settings) {
 			logger.error("QuickAdd plugin is not installed or enabled.");
 			results.set(this.id, {

@@ -1,8 +1,8 @@
-import { ItemView, MarkdownRenderer, setIcon } from "obsidian";
-import { EditorView } from "@codemirror/view";
+import { basicSetup } from "@codemirror/basic-setup";
 import { markdown } from "@codemirror/lang-markdown";
 import { MergeView } from "@codemirror/merge";
-import { basicSetup } from "@codemirror/basic-setup";
+import { EditorView } from "@codemirror/view";
+import { ItemView, MarkdownRenderer, setIcon } from "obsidian";
 import type { WorkspaceLeaf as ObsidianWorkspaceLeaf } from "obsidian";
 
 export const DIFF_REVIEW_VIEW_TYPE = "auralite-diff-review-view";

@@ -1,7 +1,9 @@
 import { renderTemplate } from "@/TemplateEngine";
+import { DiffReviewView } from "@/components/DiffReviewView";
 import { logger } from "@/logging";
 import { removeWhitespace } from "@/utils";
 import { type Editor, MarkdownView, type TFile } from "obsidian";
+import type { WorkspaceLeaf } from "obsidian";
 import type {
 	ChatCompletion,
 	ChatCompletionMessageParam,
@@ -9,8 +11,6 @@ import type {
 import { merge } from "three-way-merge";
 import { z } from "zod";
 import { Action, type ActionContext } from "./Action";
-import { DiffReviewView } from "@/components/DiffReviewView";
-import type { WorkspaceLeaf } from "obsidian";
 
 const prompt = removeWhitespace(`
     You are an AI assistant tasked with updating a file's content based on specific instructions. This task requires precision and attention to detail to ensure that only the relevant parts of the file are modified while maintaining the integrity of the rest of the content.

@@ -106,7 +106,9 @@ export class Telemetry {
 	private maxLogSize = 1000; // Maximum number of records to keep
 
 	// Pricing per 1000 tokens in USD (updated 2025-03-16)
-	private modelPricing: Record<string, ModelPricing> = {
+	private modelPricing: Record<string, ModelPricing> & {
+		default: ModelPricing;
+	} = {
 		"gpt-4.1": { prompt: 0.002, completion: 0.008 },
 		"gpt-4.1-mini": { prompt: 0.0002, completion: 0.0008 },
 		"gpt-4.1-nano": { prompt: 0.0001, completion: 0.0004 },
@@ -130,7 +132,6 @@ export class Telemetry {
 
 	// Get default pricing for unknown models
 	private getDefaultPricing(): ModelPricing {
-		// Using bracket notation to avoid TypeScript index signature error
 		return this.modelPricing.default;
 	}
 
