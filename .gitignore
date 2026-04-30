@@ -174,5 +174,6 @@ dist
 # Finder (MacOS) folder config
 .DS_Store
 .aider*
+.wrangler/
 docs/venv
 docs/site
