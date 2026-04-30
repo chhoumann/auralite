@@ -1,5 +1,4 @@
 import { telemetry } from "@/telemetry";
-import type { TokenUsage } from "@/telemetry";
 
 export interface TelemetryContext {
 	sessionId: string;
@@ -24,15 +23,13 @@ export async function withTelemetry<T>(
 		getPayload(),
 	);
 	try {
-		const result = await fn(requestId, context);
-		telemetry.finishRecording(
-			requestId,
-			{ success: true, estimated: false },
-			context,
-		);
-		return result;
+		return await fn(requestId, context);
 	} catch (error) {
-		telemetry.finishRecording(requestId, { error, estimated: false }, context);
+		telemetry.finishRecording(requestId, {
+			promptTokens: 0,
+			completionTokens: 0,
+			error: error instanceof Error ? error : new Error(String(error)),
+		});
 		throw error;
 	}
 }

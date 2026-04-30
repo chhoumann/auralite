@@ -18,6 +18,7 @@ import { ActionManager } from "./actions/ActionManager";
 import { CreateNoteAction } from "./actions/CreateNoteAction";
 import { EditAction } from "./actions/EditAction";
 import { NoopAction } from "./actions/NoopAction";
+import { QuickAddAction } from "./actions/QuickAddAction";
 import { TranscribeAction } from "./actions/TranscribeAction";
 import { WriteAction } from "./actions/WriteAction";
 import { AIManager } from "./ai";
@@ -26,7 +27,6 @@ import { logger } from "./logging";
 import { AssistantTask } from "./tasks/AssistantTask";
 import { TranscribeTask } from "./tasks/TranscribeTask";
 import { telemetry } from "./telemetry";
-import { QuickAddAction } from "./actions/QuickAddAction";
 
 declare const __IS_DEV__: boolean;
 

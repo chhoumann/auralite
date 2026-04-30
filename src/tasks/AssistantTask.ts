@@ -4,9 +4,6 @@ import { WaveformVisualizer } from "@/components/WaveformVisualizer";
 import { logger } from "@/logging";
 import { Task } from "@/tasks/Task";
 import { delay } from "@/utils";
-import { EditActionStatus } from "@/actions/EditAction";
-import type { EditActionResult } from "@/actions/EditAction";
-import type { ActionContext } from "@/actions/Action";
 
 declare const __IS_DEV__: boolean;
 
@@ -146,24 +143,6 @@ export class AssistantTask extends Task {
 		} finally {
 			await delay(3000);
 			this.finish();
-		}
-	}
-
-	private handleEditResult(context: ActionContext) {
-		const result = context.results?.get("edit") as EditActionResult | undefined;
-		if (!result) return;
-		switch (result.status) {
-			case EditActionStatus.REJECTED:
-				this.floatingBar?.setStatus("Edit discarded. No changes were made.");
-				break;
-			case EditActionStatus.APPLIED:
-				this.floatingBar?.setStatus("Edit applied successfully.");
-				break;
-			case EditActionStatus.ERROR:
-				this.floatingBar?.setStatus(
-					result.error || "An error occurred while applying the edit.",
-				);
-				break;
 		}
 	}
 }

@@ -1,6 +1,9 @@
 import type { EditorState } from "@/actions/Action";
 import type AuralitePlugin from "@/main";
 import { removeWhitespace } from "@/utils";
+import { flattenQuickAddChoices } from "@/utils/quickadd";
+import { generateRequestId, getOrCreateSessionId } from "@/utils/session";
+import { type TelemetryContext, withTelemetry } from "@/utils/withTelemetry";
 import type Instructor from "@instructor-ai/instructor";
 import type OpenAI from "openai";
 import type { ClientOptions } from "openai";
@@ -12,9 +15,6 @@ import { hasUsage, isActionResponse } from "./api_types";
 import { logger } from "./logging";
 import { telemetry } from "./telemetry";
 import { TypedEvents } from "./types/TypedEvents";
-import { withTelemetry, type TelemetryContext } from "@/utils/withTelemetry";
-import { getOrCreateSessionId, generateRequestId } from "@/utils/session";
-import { flattenQuickAddChoices, type QuickAddPlugin } from "@/utils/quickadd";
 
 interface AIManagerEvents {
 	processingStarted: () => void;
@@ -654,8 +654,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 
 function buildQuickAddPromptSection(plugin: AuralitePlugin): string {
 	const quickAddAction = plugin.actionManager.getAction("quickadd");
-	const quickAddPlugin = (plugin.app as import("obsidian").App).plugins?.plugins
-		?.quickadd as QuickAddPlugin | undefined;
+	const quickAddPlugin = plugin.app.plugins?.plugins?.quickadd;
 	if (!quickAddAction || !quickAddPlugin?.settings?.choices) return "";
 	const allQuickAddChoices = flattenQuickAddChoices(
 		quickAddPlugin.settings.choices,
