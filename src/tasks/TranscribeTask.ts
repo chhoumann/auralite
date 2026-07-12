@@ -89,13 +89,9 @@ export class TranscribeTask extends Task {
 
 			let recordingEmbed: string | undefined;
 			if (this.plugin.settings.SAVE_AUDIO_RECORDINGS) {
-				const sourcePath = this.editorState.currentFile?.path;
-				if (!sourcePath) {
-					throw new Error("No active note found for recording attachment");
-				}
 				recordingEmbed = await this.plugin.saveAudioRecording(
 					recording,
-					sourcePath,
+					this.editorState.currentFile?.path,
 				);
 			}
 
