@@ -208,7 +208,7 @@ export default class AuralitePlugin extends Plugin {
 
 	async saveAudioRecording(
 		recording: AudioRecording,
-		sourcePath: string,
+		sourcePath?: string,
 	): Promise<string> {
 		const filename = createRecordingFilename(recording, new Date());
 		const attachmentPath =
@@ -220,7 +220,10 @@ export default class AuralitePlugin extends Plugin {
 			attachmentPath,
 			recording.buffer,
 		);
-		const link = this.app.fileManager.generateMarkdownLink(file, sourcePath);
+		const link = this.app.fileManager.generateMarkdownLink(
+			file,
+			sourcePath ?? "",
+		);
 
 		return `!${link}`;
 	}
