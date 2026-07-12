@@ -36,7 +36,7 @@
     "format": "biome format src version-bump.ts --write",
     "check": "biome check --write src version-bump.ts && bun run type-check",
     "type-check": "bun tsc --noEmit",
-    "version": "bun ./version-bump.ts && git add manifest.json versions.json",
+    "version": "bun ./version-bump.ts && bun run build && git add manifest.json versions.json",
     "semantic-release": "semantic-release"
   },
   "type": "commonjs",
