@@ -3,6 +3,7 @@ import { Plugin, TFile } from "obsidian";
 import type { App } from "obsidian";
 import OpenAI from "openai";
 import { AudioRecorder } from "./AudioRecorder";
+import type { AudioRecording } from "./AudioRecorder";
 import {
 	type AuralitePluginSettings,
 	AuraliteSettingsTab,
@@ -24,6 +25,7 @@ import { WriteAction } from "./actions/WriteAction";
 import { AIManager } from "./ai";
 import { registerCommands } from "./commands";
 import { logger } from "./logging";
+import { createRecordingFilename } from "./recordings";
 import { AssistantTask } from "./tasks/AssistantTask";
 import { TranscribeTask } from "./tasks/TranscribeTask";
 import { telemetry } from "./telemetry";
@@ -202,6 +204,25 @@ export default class AuralitePlugin extends Plugin {
 		} catch (error) {
 			logger.error("Error saving transcription", { error });
 		}
+	}
+
+	async saveAudioRecording(
+		recording: AudioRecording,
+		sourcePath: string,
+	): Promise<string> {
+		const filename = createRecordingFilename(recording, new Date());
+		const attachmentPath =
+			await this.app.fileManager.getAvailablePathForAttachment(
+				filename,
+				sourcePath,
+			);
+		const file = await this.app.vault.createBinary(
+			attachmentPath,
+			recording.buffer,
+		);
+		const link = this.app.fileManager.generateMarkdownLink(file, sourcePath);
+
+		return `!${link}`;
 	}
 
 	private async saveTranscription(filePath: string, transcription: string) {

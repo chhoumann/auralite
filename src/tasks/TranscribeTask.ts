@@ -1,13 +1,14 @@
+import type { AudioRecording } from "@/AudioRecorder";
 import type { EditorState } from "@/actions/Action";
 import { FloatingBar } from "@/components/FloatingBar";
 import { WaveformVisualizer } from "@/components/WaveformVisualizer";
 import { logger } from "@/logging";
+import { appendRecordingEmbed } from "@/recordings";
 import { delay } from "@/utils";
 import { Task } from "./Task";
 
 export class TranscribeTask extends Task {
 	private editorState: Partial<EditorState> | undefined;
-	private audioData: { buffer: ArrayBuffer; mimeType: string } | null = null;
 	private floatingBar: FloatingBar | null = null;
 	private waveformVisualizer: WaveformVisualizer | null = null;
 
@@ -75,37 +76,38 @@ export class TranscribeTask extends Task {
 	}
 
 	protected async handleRecordingStopped() {
-		this.editorState = await this.contextBuilder.captureEditorState();
 		this.waveformVisualizer?.stop();
 		this.floatingBar?.setStatus("Finished recording");
 	}
 
-	protected async handleRecordingComplete(data: {
-		buffer: ArrayBuffer;
-		mimeType: string;
-	}) {
+	protected async handleRecordingComplete(recording: AudioRecording) {
 		try {
-			this.audioData = data;
+			this.editorState = await this.contextBuilder.captureEditorState();
+			if (!this.editorState.cursor || !this.editorState.activeEditor) {
+				throw new Error("No cursor or active editor found");
+			}
 
-			if (!this.editorState || !this.audioData) {
-				throw new Error("No editor state or audio data found");
+			let recordingEmbed: string | undefined;
+			if (this.plugin.settings.SAVE_AUDIO_RECORDINGS) {
+				const sourcePath = this.editorState.currentFile?.path;
+				if (!sourcePath) {
+					throw new Error("No active note found for recording attachment");
+				}
+				recordingEmbed = await this.plugin.saveAudioRecording(
+					recording,
+					sourcePath,
+				);
 			}
 
 			this.floatingBar?.setStatus("Transcribing...");
-			const transcription = await this.aiManager.transcribeAudio(
-				this.audioData,
+			const transcription = await this.aiManager.transcribeAudio(recording);
+			const content = appendRecordingEmbed(transcription, recordingEmbed);
+
+			this.editorState.activeEditor.replaceRange(
+				content,
+				this.editorState.cursor,
 			);
-
-			if (this.editorState.cursor && this.editorState.activeEditor) {
-				this.editorState.activeEditor.replaceRange(transcription, {
-					line: this.editorState.cursor?.line,
-					ch: this.editorState.cursor?.ch,
-				});
-
-				this.floatingBar?.setStatus("Added to editor");
-			} else {
-				this.floatingBar?.setStatus("No cursor or active editor found");
-			}
+			this.floatingBar?.setStatus("Added to editor");
 		} catch (error) {
 			logger.error("Error handling completed recording:", { error });
 			this.status = "error";

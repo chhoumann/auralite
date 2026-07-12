@@ -1,3 +1,4 @@
+import type { AudioRecording } from "@/AudioRecorder";
 import type { EditorState } from "@/actions/Action";
 import type AuralitePlugin from "@/main";
 import { removeWhitespace } from "@/utils";
@@ -47,10 +48,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 		return this.instructorClient;
 	}
 
-	async transcribeAudio(audioData: {
-		buffer: ArrayBuffer;
-		mimeType: string;
-	}): Promise<string> {
+	async transcribeAudio(audioData: AudioRecording): Promise<string> {
 		this.abortController = new AbortController();
 
 		// Use the selected transcription model from settings
@@ -60,7 +58,10 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 		try {
 			const response = await this.oai.audio.transcriptions.create(
 				{
-					file: new File([audioData.buffer], `audio.${audioData.mimeType}`),
+					file: new File(
+						[audioData.buffer],
+						`audio.${audioData.fileExtension}`,
+					),
 					model,
 				},
 				{ signal: this.abortController.signal },

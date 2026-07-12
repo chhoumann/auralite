@@ -10,7 +10,11 @@ async function getActiveFileFormatted(plugin: AuralitePlugin) {
 		return undefined;
 	}
 
-	return { name: file.name, content: await plugin.app.vault.cachedRead(file) };
+	return {
+		name: file.name,
+		path: file.path,
+		content: await plugin.app.vault.cachedRead(file),
+	};
 }
 
 export class ContextBuilder {
@@ -28,7 +32,8 @@ export class ContextBuilder {
 			cursor: cursor,
 			activeEditor: activeView?.editor,
 			currentFile: await getActiveFileFormatted(this.plugin),
-			currentLine: line ? activeView?.editor.getLine(line) : undefined,
+			currentLine:
+				line !== undefined ? activeView?.editor.getLine(line) : undefined,
 			currentSelection: currentSelection ? currentSelection : undefined,
 		};
 	}
