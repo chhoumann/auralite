@@ -31,6 +31,7 @@
   "scripts": {
     "dev": "bun ./esbuild.config.mjs",
     "build": "bun ./esbuild.config.mjs production",
+    "test": "bun test",
     "lint": "biome lint src version-bump.ts",
     "format": "biome format src version-bump.ts --write",
     "check": "biome check --write src version-bump.ts && bun run type-check",

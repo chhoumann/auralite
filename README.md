@@ -39,6 +39,7 @@
 **Command**: `Transcribe`
 - Speak your thoughts and get formatted text at your cursor
 - Automatic punctuation and paragraph breaks
+- Optionally save the original recording as a vault attachment embedded after the transcript
 - Supports multiple languages and accents
 
 ### AI Assistant

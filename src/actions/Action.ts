@@ -21,6 +21,7 @@ export type EditorState = {
 	currentLine: string;
 	currentFile: {
 		name: string;
+		path: string;
 		content: string;
 	};
 };

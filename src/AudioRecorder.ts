@@ -3,7 +3,7 @@ import { TypedEvents } from "./types/TypedEvents";
 
 interface AudioRecorderEvents {
 	dataAvailable: (data: Blob) => void;
-	recordingComplete: (data: { buffer: ArrayBuffer; mimeType: string }) => void;
+	recordingComplete: (data: AudioRecording) => void;
 	recordingStarted: () => void;
 	recordingStopped: () => void;
 	recordingCancelled: (error: Error) => void;
@@ -11,16 +11,16 @@ interface AudioRecorderEvents {
 	error: (error: unknown) => void;
 }
 
+export interface AudioRecording {
+	buffer: ArrayBuffer;
+	fileExtension: string;
+}
+
 export class AudioRecorder extends TypedEvents<AudioRecorderEvents> {
 	private mediaRecorder: MediaRecorder | null = null;
 	private audioChunks: Blob[] = [];
-	private recordingPromise: Promise<{
-		buffer: ArrayBuffer;
-		mimeType: string;
-	}> | null = null;
-	private resolveRecording:
-		| ((value: { buffer: ArrayBuffer; mimeType: string }) => void)
-		| null = null;
+	private recordingPromise: Promise<AudioRecording> | null = null;
+	private resolveRecording: ((value: AudioRecording) => void) | null = null;
 	private rejectRecording: ((reason: unknown) => void) | null = null;
 	private audioContext: AudioContext | null = null;
 	private analyser: AnalyserNode | null = null;
@@ -48,12 +48,12 @@ export class AudioRecorder extends TypedEvents<AudioRecorderEvents> {
 
 	private handleStop = () => {
 		const fullMimeType = this.mediaRecorder?.mimeType || "audio/webm";
-		const mimeType = this.getMimeTypeExtension(fullMimeType);
+		const fileExtension = this.getMimeTypeExtension(fullMimeType);
 		const audioBlob = new Blob(this.audioChunks, { type: fullMimeType });
 		audioBlob.arrayBuffer().then((buffer) => {
 			if (this.resolveRecording) {
-				this.resolveRecording({ buffer, mimeType });
-				this.trigger("recordingComplete", { buffer, mimeType });
+				this.resolveRecording({ buffer, fileExtension });
+				this.trigger("recordingComplete", { buffer, fileExtension });
 			}
 		});
 		this.trigger("recordingStopped");
@@ -125,7 +125,7 @@ export class AudioRecorder extends TypedEvents<AudioRecorderEvents> {
 		}
 	}
 
-	stop(): Promise<{ buffer: ArrayBuffer; mimeType: string }> {
+	stop(): Promise<AudioRecording> {
 		if (!this.mediaRecorder || this.mediaRecorder.state !== "recording") {
 			const error = new Error("No active recording to stop");
 			this.trigger("error", error);

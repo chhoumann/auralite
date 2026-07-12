@@ -1,3 +1,4 @@
+import type { AudioRecording } from "@/AudioRecorder";
 import type { EditorState } from "@/actions/Action";
 import { FloatingBar } from "@/components/FloatingBar";
 import { WaveformVisualizer } from "@/components/WaveformVisualizer";
@@ -9,7 +10,7 @@ declare const __IS_DEV__: boolean;
 
 export class AssistantTask extends Task {
 	private editorState: Partial<EditorState> | undefined;
-	private audioData: { buffer: ArrayBuffer; mimeType: string } | null = null;
+	private audioData: AudioRecording | null = null;
 	private floatingBar: FloatingBar | null = null;
 	private waveformVisualizer: WaveformVisualizer | null = null;
 
@@ -107,10 +108,7 @@ export class AssistantTask extends Task {
 		this.floatingBar.show();
 	}
 
-	protected async handleRecordingComplete(data: {
-		buffer: ArrayBuffer;
-		mimeType: string;
-	}) {
+	protected async handleRecordingComplete(data: AudioRecording) {
 		this.audioData = data;
 		this.editorState = await this.contextBuilder.captureEditorState();
 

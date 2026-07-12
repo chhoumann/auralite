@@ -27,6 +27,7 @@ export interface AuralitePluginSettings {
 	OPENAI_MODEL: OpenAIModel;
 	SILENCE_DETECTION_ENABLED: boolean;
 	SILENCE_DURATION: number;
+	SAVE_AUDIO_RECORDINGS: boolean;
 	DEFAULT_NOTE_TEMPLATE_PATH: string;
 	USE_EDIT_MODE_BY_DEFAULT: boolean;
 	TELEMETRY_ENABLED: boolean;
@@ -43,6 +44,7 @@ export const DEFAULT_SETTINGS: AuralitePluginSettings = {
 	OPENAI_MODEL: "gpt-4.1",
 	SILENCE_DETECTION_ENABLED: false,
 	SILENCE_DURATION: 2000,
+	SAVE_AUDIO_RECORDINGS: false,
 	DEFAULT_NOTE_TEMPLATE_PATH: "",
 	USE_EDIT_MODE_BY_DEFAULT: false,
 	TELEMETRY_ENABLED: true,
@@ -99,6 +101,7 @@ export class AuraliteSettingsTab extends PluginSettingTab {
 			cls: "auralite-settings-section-description",
 		});
 		this.addSilenceDetectionSettings(silenceSection);
+		this.addSaveAudioRecordingsSetting(silenceSection);
 
 		// 4. Notes & Templates Section
 		const templateSection = containerEl.createDiv({
@@ -277,6 +280,22 @@ export class AuraliteSettingsTab extends PluginSettingTab {
 			text: "seconds",
 			cls: "setting-item-description",
 		});
+	}
+
+	addSaveAudioRecordingsSetting(containerEl: HTMLElement) {
+		new Setting(containerEl)
+			.setName("Save audio recordings")
+			.setDesc(
+				"Save each transcription recording as a vault attachment and embed it after the transcript.",
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.SAVE_AUDIO_RECORDINGS)
+					.onChange(async (value) => {
+						this.plugin.settings.SAVE_AUDIO_RECORDINGS = value;
+						await this.plugin.saveSettings();
+					}),
+			);
 	}
 
 	addDefaultNoteTemplateSetting(containerEl: HTMLElement) {
