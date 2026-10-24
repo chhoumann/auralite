@@ -37,7 +37,7 @@
     "@codemirror/merge": "6.12.2",
     "codemirror": "6.0.2",
     "node-diff3": "3.2.1",
-    "openai": "7.35.0",
+    "openai": "7.36.0",
     "zod": "4.6.7"
   }
 }
