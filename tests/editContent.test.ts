@@ -40,6 +40,14 @@ describe("applying an edit", () => {
 		});
 	}
 
+	test("writes CRLF line endings into a CRLF note when the model answers with LF", () => {
+		const base = "# Title\r\n\r\nFirst paragraph.\r\n\r\nLast paragraph.\r\n";
+		const current = base.replace("Last paragraph.", "Last paragraph, edited.");
+		expect(applyEdit(base, current)).toBe(
+			"# New Title\r\n\r\nFirst paragraph.\r\n\r\nLast paragraph, edited.\r\n",
+		);
+	});
+
 	test("keeps CRLF line endings", () => {
 		const base = "# Title\r\n\r\nFirst paragraph.\r\n\r\nLast paragraph.\r\n";
 		const current = base.replace("Last paragraph.", "Last paragraph, edited.");

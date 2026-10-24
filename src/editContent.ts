@@ -2,9 +2,9 @@ import { merge } from "node-diff3";
 
 /**
  * Returns the file content between the <updated_content> tags. The line
- * breaks that separate the content from the tags are dropped, and the
- * original file's final line break is kept, so an edit never adds or removes
- * one.
+ * breaks that separate the content from the tags are dropped, and the result
+ * uses the original file's line endings and final line break, so an edit
+ * never changes either.
  */
 export function extractUpdatedContent(
 	response: string,
@@ -14,7 +14,9 @@ export function extractUpdatedContent(
 		/<updated_content>\r?\n?([\s\S]*?)\r?\n?<\/updated_content>/,
 	);
 	if (!match) return null;
-	return match[1] + (original.match(/\r?\n$/)?.[0] ?? "");
+	const eol = original.includes("\r\n") ? "\r\n" : "\n";
+	const content = match[1].replace(/\r?\n/g, eol);
+	return /\r?\n$/.test(original) ? content + eol : content;
 }
 
 /**
