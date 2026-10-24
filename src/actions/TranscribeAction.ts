@@ -1,10 +1,13 @@
-import { logger } from "@/logging";
-import { getOpenAIChatStreamProcessor, removeWhitespace } from "@/utils";
-import { createStreamingInserter } from "@/utils";
 import { type Editor, type EditorPosition, MarkdownView } from "obsidian";
 import type { ChatCompletion, ChatCompletionChunk } from "openai/resources";
 import type { Stream } from "openai/streaming";
 import * as z from "zod/mini";
+import { logger } from "@/logging";
+import {
+	createStreamingInserter,
+	getOpenAIChatStreamProcessor,
+	removeWhitespace,
+} from "@/utils";
 import { Action, type ActionContext } from "./Action";
 
 export class TranscribeAction extends Action<
@@ -58,7 +61,7 @@ export class TranscribeAction extends Action<
 
 	protected async performAction(
 		input: ChatCompletion,
-		context: ActionContext,
+		_context: ActionContext,
 	): Promise<void> {
 		if (!this.activeEditor || !this.cursor || !this.activeView) {
 			throw new Error("No active editor, view, or cursor position");

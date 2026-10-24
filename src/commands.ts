@@ -31,7 +31,6 @@ export function registerCommands(plugin: AuralitePlugin): void {
 					return false;
 				}
 
-				// @ts-ignore
 				this.name = isAssistantActive
 					? "Auralite: Stop Assistant"
 					: "Auralite: Start Assistant";
@@ -66,7 +65,6 @@ export function registerCommands(plugin: AuralitePlugin): void {
 					return false;
 				}
 
-				// @ts-ignore
 				this.name = isTranscribeTask
 					? "Auralite: Stop Transcription"
 					: "Auralite: Transcribe";

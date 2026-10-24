@@ -1,15 +1,15 @@
-import { renderTemplate } from "@/TemplateEngine";
-import { DiffReviewView } from "@/components/DiffReviewView";
-import { logger } from "@/logging";
-import { removeWhitespace } from "@/utils";
 import { merge } from "node-diff3";
-import { type Editor, MarkdownView, type TFile } from "obsidian";
 import type { WorkspaceLeaf } from "obsidian";
+import { type Editor, MarkdownView, type TFile } from "obsidian";
 import type {
 	ChatCompletion,
 	ChatCompletionMessageParam,
 } from "openai/resources";
 import * as z from "zod/mini";
+import { DiffReviewView } from "@/components/DiffReviewView";
+import { logger } from "@/logging";
+import { renderTemplate } from "@/TemplateEngine";
+import { removeWhitespace } from "@/utils";
 import { Action, type ActionContext } from "./Action";
 
 const prompt = removeWhitespace(`
@@ -133,7 +133,7 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 						try {
 							await this.applyChanges(updatedContent, context);
 							resolve(EditActionStatus.APPLIED);
-						} catch (e) {
+						} catch (_e) {
 							resolve(EditActionStatus.ERROR);
 						}
 					})();

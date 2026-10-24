@@ -126,7 +126,7 @@ export class AudioRecorder extends TypedEvents<AudioRecorderEvents> {
 	}
 
 	stop(): Promise<AudioRecording> {
-		if (!this.mediaRecorder || this.mediaRecorder.state !== "recording") {
+		if (this.mediaRecorder?.state !== "recording") {
 			const error = new Error("No active recording to stop");
 			this.trigger("error", error);
 			return Promise.reject(error);

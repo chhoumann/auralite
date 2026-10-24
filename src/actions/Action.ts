@@ -1,7 +1,3 @@
-import { renderTemplate } from "@/TemplateEngine";
-import type { AIManager } from "@/ai";
-import { logger } from "@/logging";
-import type AuralitePlugin from "@/main";
 import type { App, Editor, EditorPosition, View } from "obsidian";
 import type OpenAI from "openai";
 import type {
@@ -11,6 +7,10 @@ import type {
 } from "openai/resources";
 import type { Stream } from "openai/streaming";
 import type * as z from "zod/mini";
+import type { AIManager } from "@/ai";
+import { logger } from "@/logging";
+import type AuralitePlugin from "@/main";
+import { renderTemplate } from "@/TemplateEngine";
 
 export type EditorState = {
 	activeView: View;
@@ -92,7 +92,7 @@ export abstract class Action<TInput extends z.ZodMiniObject> {
 		}
 	}
 
-	protected async preExecute(context: ActionContext): Promise<void> {}
+	protected async preExecute(_context: ActionContext): Promise<void> {}
 
 	protected abstract performAction(
 		input: z.infer<TInput> | ChatCompletion,
@@ -100,8 +100,8 @@ export abstract class Action<TInput extends z.ZodMiniObject> {
 	): Promise<void>;
 
 	protected async performActionStream(
-		stream: Stream<ChatCompletionChunk>,
-		context: ActionContext,
+		_stream: Stream<ChatCompletionChunk>,
+		_context: ActionContext,
 	): Promise<void> {
 		throw new Error("Streaming not implemented for this action");
 	}

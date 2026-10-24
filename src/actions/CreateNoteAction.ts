@@ -1,9 +1,9 @@
-import { renderTemplate } from "@/TemplateEngine";
-import { logger } from "@/logging";
-import { openFile } from "@/obsidianUtils";
-import { removeWhitespace } from "@/utils";
 import { TFile } from "obsidian";
 import * as z from "zod/mini";
+import { logger } from "@/logging";
+import { openFile } from "@/obsidianUtils";
+import { renderTemplate } from "@/TemplateEngine";
+import { removeWhitespace } from "@/utils";
 import { Action, type ActionContext } from "./Action";
 
 export class CreateNoteAction extends Action<
