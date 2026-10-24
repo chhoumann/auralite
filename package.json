@@ -24,9 +24,9 @@
     "dev": "bun ./esbuild.config.mjs",
     "build": "bun ./esbuild.config.mjs production",
     "test": "bun test",
-    "lint": "biome lint src version-bump.ts",
-    "format": "biome format src version-bump.ts --write",
-    "check": "biome check --write src version-bump.ts && bun run type-check",
+    "lint": "biome lint .",
+    "format": "biome format . --write",
+    "check": "biome check --write . && bun run type-check",
     "type-check": "tsc --noEmit",
     "version": "bun ./version-bump.ts && bun run build && git add manifest.json versions.json",
     "semantic-release": "semantic-release"

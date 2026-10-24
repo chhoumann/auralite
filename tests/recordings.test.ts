@@ -17,9 +17,9 @@ describe("recording attachments", () => {
 	});
 
 	test("embeds a saved recording after the transcript", () => {
-		expect(appendRecordingEmbed("Spoken thought.\n", "![[recording.webm]]")).toBe(
-			"Spoken thought.\n\n![[recording.webm]]",
-		);
+		expect(
+			appendRecordingEmbed("Spoken thought.\n", "![[recording.webm]]"),
+		).toBe("Spoken thought.\n\n![[recording.webm]]");
 	});
 
 	test("leaves the transcript unchanged when saving is disabled", () => {
