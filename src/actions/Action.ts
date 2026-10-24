@@ -2,7 +2,6 @@ import { renderTemplate } from "@/TemplateEngine";
 import type { AIManager } from "@/ai";
 import { logger } from "@/logging";
 import type AuralitePlugin from "@/main";
-import type Instructor from "@instructor-ai/instructor";
 import type { App, Editor, EditorPosition, View } from "obsidian";
 import type OpenAI from "openai";
 import type {
@@ -31,7 +30,6 @@ export interface ActionContext {
 	app: App;
 	oai: OpenAI;
 	ai: AIManager;
-	client: ReturnType<typeof Instructor>;
 	results: Map<string, unknown>;
 	abortSignal: AbortSignal;
 	state: {
@@ -47,7 +45,7 @@ export abstract class Action<TInput extends z.AnyZodObject> {
 	abstract readonly description: string;
 
 	/**
-	 * Whether this action uses an LLM (OpenAI chat/completions or Instructor).
+	 * Whether this action uses an LLM.
 	 * Used to determine if per-action model selection should be shown in settings.
 	 */
 	readonly usesLLM: boolean = true;
@@ -57,7 +55,7 @@ export abstract class Action<TInput extends z.AnyZodObject> {
 		readonly inputSchema: TInput,
 		readonly systemPrompt: string,
 		readonly supportsStreaming: boolean = false,
-		readonly useInstructor: boolean = true,
+		readonly structuredOutput: boolean = true,
 	) {}
 
 	async execute(context: ActionContext): Promise<void> {
@@ -79,28 +77,18 @@ export abstract class Action<TInput extends z.AnyZodObject> {
 
 		logger.debug("messages:", { msgs });
 
-		if (this.useInstructor) {
-			if (this.supportsStreaming) {
-				const stream = await context.ai.createInstructorChatCompletionStream(
-					this.inputSchema,
-					msgs,
-				);
-				await this.performActionStream(stream, context);
-			} else {
-				const input = await context.ai.createInstructorChatCompletion(
-					this.inputSchema,
-					msgs,
-				);
-				await this.performAction(input, context);
-			}
+		if (this.structuredOutput) {
+			const input = await context.ai.createStructuredChatCompletion(
+				this.inputSchema,
+				msgs,
+			);
+			await this.performAction(input, context);
+		} else if (this.supportsStreaming) {
+			const stream = await context.ai.createOpenAIChatCompletionStream(msgs);
+			await this.performActionStream(stream, context);
 		} else {
-			if (this.supportsStreaming) {
-				const stream = await context.ai.createOpenAIChatCompletionStream(msgs);
-				await this.performActionStream(stream, context);
-			} else {
-				const response = await context.ai.createOpenAIChatCompletion(msgs);
-				await this.performAction(response, context);
-			}
+			const response = await context.ai.createOpenAIChatCompletion(msgs);
+			await this.performAction(response, context);
 		}
 	}
 
@@ -112,7 +100,7 @@ export abstract class Action<TInput extends z.AnyZodObject> {
 	): Promise<void>;
 
 	protected async performActionStream(
-		stream: Stream<z.infer<TInput> | ChatCompletionChunk>,
+		stream: Stream<ChatCompletionChunk>,
 		context: ActionContext,
 	): Promise<void> {
 		throw new Error("Streaming not implemented for this action");

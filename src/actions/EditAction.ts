@@ -238,41 +238,14 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 			// Type assertion to ensure response is treated as ChatCompletion
 			await this.performAction(response as ChatCompletion, context);
 		} else {
-			// Use standard mode (calling the parent implementation)
-			if (this.useInstructor) {
-				if (this.supportsStreaming) {
-					const stream = await context.ai.createInstructorChatCompletionStream(
-						this.inputSchema,
-						msgs,
-						model,
-					);
-					await this.performActionStream(stream, context);
-				} else {
-					const input = await context.ai.createInstructorChatCompletion(
-						this.inputSchema,
-						msgs,
-						model,
-					);
-					// Type assertion to match expected parameter type
-					await this.performAction(input as unknown as ChatCompletion, context);
-				}
-			} else {
-				if (this.supportsStreaming) {
-					const stream =
-						await context.ai.createOpenAIChatCompletionStream(msgs);
-					await this.performActionStream(stream, context);
-				} else {
-					const response = await context.ai.createOpenAIChatCompletion(
-						msgs,
-						{},
-						false,
-						undefined,
-						model,
-					);
-					// Type assertion to ensure response is treated as ChatCompletion
-					await this.performAction(response as ChatCompletion, context);
-				}
-			}
+			const response = await context.ai.createOpenAIChatCompletion(
+				msgs,
+				{},
+				false,
+				undefined,
+				model,
+			);
+			await this.performAction(response as ChatCompletion, context);
 		}
 	}
 }

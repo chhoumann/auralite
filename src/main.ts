@@ -1,4 +1,3 @@
-import Instructor from "@instructor-ai/instructor";
 import { Plugin, TFile } from "obsidian";
 import type { App } from "obsidian";
 import OpenAI from "openai";
@@ -79,7 +78,6 @@ export default class AuralitePlugin extends Plugin {
 			this,
 			this.actionManager.getAllActionIds(),
 			openAIClient,
-			Instructor({ client: openAIClient, mode: "TOOLS" }),
 			this.contextBuilder,
 		);
 	}

@@ -17,25 +17,22 @@ export class CreateNoteAction extends Action<
 			.describe(
 				"The name of the note to create. Must be a valid markdown filename.",
 			),
-		content: z.string().optional().describe("The content of the note."),
+		content: z.string().nullable().describe("The content of the note."),
 		paneType: z
 			.enum(["tab", "split", "window"])
-			.optional()
-			.default("tab")
+			.nullable()
 			.describe("The type of pane to open the file in."),
 		direction: z
 			.enum(["horizontal", "vertical"])
-			.optional()
+			.nullable()
 			.describe("The direction to split the pane, if paneType is 'split'."),
 		mode: z
 			.enum(["source", "preview", "default"])
-			.optional()
-			.default("default")
+			.nullable()
 			.describe("The view mode to open the file in."),
 		focus: z
 			.boolean()
-			.optional()
-			.default(true)
+			.nullable()
 			.describe("Whether to focus the file after opening."),
 	});
 
@@ -146,10 +143,10 @@ export class CreateNoteAction extends Action<
 		const note = await context.app.vault.create(noteName, content);
 
 		openFile(context.app, note, {
-			paneType: input.paneType,
-			direction: input.direction,
-			mode: input.mode,
-			focus: input.focus,
+			paneType: input.paneType ?? "tab",
+			direction: input.direction ?? undefined,
+			mode: input.mode ?? "default",
+			focus: input.focus ?? true,
 		});
 
 		context.results.set(this.id, {

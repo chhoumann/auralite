@@ -109,7 +109,7 @@ export class QuickAddAction extends Action<typeof QuickAddAction.inputSchema> {
 			choiceName: z.enum(allFullPaths as [string, ...string[]]),
 		});
 		const selectionPrompt = `Select the best matching QuickAdd action from the following list (use the exact full path). Only output a JSON object with { \"choiceName\": ... }:\n${allFullPaths.join("\n")}`;
-		const selection = await context.ai.createInstructorChatCompletion(
+		const selection = await context.ai.createStructuredChatCompletion(
 			selectionSchema,
 			[
 				{ role: "system", content: selectionPrompt },
@@ -189,7 +189,7 @@ export class QuickAddAction extends Action<typeof QuickAddAction.inputSchema> {
 
 			const variablePrompt = `You are filling variables for the QuickAdd action '${actionName}' (type: ${actionType}).\n${formatLine}Variables:\n${variableDescriptions}\nGiven the user's request, output a JSON object with the following keys: ${variableNames.join(", ")}. Only output the JSON object, nothing else.`;
 
-			const variableResult = await context.ai.createInstructorChatCompletion(
+			const variableResult = await context.ai.createStructuredChatCompletion(
 				variableSchema,
 				[
 					{ role: "system", content: variablePrompt },

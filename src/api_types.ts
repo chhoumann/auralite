@@ -39,28 +39,3 @@ export function hasUsage(
 		"total_tokens" in typedResponse.usage
 	);
 }
-
-// Type guard for Action response from instructor
-export interface ActionResponse {
-	action: string;
-	necessaryContexts?: string[];
-	useEditMode?: boolean;
-}
-
-export function isActionResponse(
-	response: unknown,
-): response is ActionResponse {
-	// Type to avoid 'any' usage
-	interface ResponseWithAction {
-		action: string;
-	}
-
-	const typedResponse = response as Partial<ResponseWithAction>;
-
-	return (
-		response !== null &&
-		typeof response === "object" &&
-		"action" in response &&
-		typeof typedResponse.action === "string"
-	);
-}

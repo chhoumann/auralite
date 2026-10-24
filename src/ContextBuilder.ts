@@ -48,7 +48,6 @@ export class ContextBuilder {
 			plugin: this.plugin,
 			oai: aiManager.getOpenAI(),
 			ai: aiManager,
-			client: aiManager.getInstructorClient(),
 			results: initialInput,
 			abortSignal: new AbortController().signal,
 			state: {
