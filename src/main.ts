@@ -33,7 +33,7 @@ import { telemetry } from "./telemetry";
 declare const __IS_DEV__: boolean;
 
 export default class AuralitePlugin extends Plugin {
-	settings!: AuralitePluginSettings;
+	declare settings: AuralitePluginSettings;
 	actionManager!: ActionManager;
 	contextBuilder!: ContextBuilder;
 	private audioRecorder: AudioRecorder = new AudioRecorder();

@@ -9,10 +9,12 @@
   "main": "main.js",
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
+    "@codemirror/state": "6.7.6",
+    "@codemirror/view": "6.43.13",
     "@semantic-release/git": "^10.0.1",
     "@types/bun": "latest",
     "esbuild": "^0.25.4",
-    "obsidian": "^1.8.7",
+    "obsidian": "1.14.4",
     "semantic-release": "^24.2.4"
   },
   "peerDependencies": {
@@ -36,8 +38,6 @@
     "@codemirror/basic-setup": "^0.20.0",
     "@codemirror/lang-markdown": "^6.3.2",
     "@codemirror/merge": "^6.10.1",
-    "@codemirror/state": "^6.5.2",
-    "@codemirror/view": "^6.36.8",
     "@instructor-ai/instructor": "^1.7.0",
     "openai": "^4.100.0",
     "three-way-merge": "^0.1.0",
