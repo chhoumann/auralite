@@ -37,8 +37,8 @@
     "@codemirror/merge": "6.12.2",
     "@instructor-ai/instructor": "^1.7.0",
     "codemirror": "6.0.2",
+    "node-diff3": "3.2.1",
     "openai": "^4.100.0",
-    "three-way-merge": "^0.1.0",
     "zod": "^3.24.4"
   }
 }

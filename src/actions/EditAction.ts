@@ -2,13 +2,13 @@ import { renderTemplate } from "@/TemplateEngine";
 import { DiffReviewView } from "@/components/DiffReviewView";
 import { logger } from "@/logging";
 import { removeWhitespace } from "@/utils";
+import { merge } from "node-diff3";
 import { type Editor, MarkdownView, type TFile } from "obsidian";
 import type { WorkspaceLeaf } from "obsidian";
 import type {
 	ChatCompletion,
 	ChatCompletionMessageParam,
 } from "openai/resources";
-import { merge } from "three-way-merge";
 import { z } from "zod";
 import { Action, type ActionContext } from "./Action";
 
@@ -177,20 +177,23 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 
 		const secondFileRead = await context.app.vault.read(this.file);
 
-		const res = merge(secondFileRead, this.fileContent, updatedContent);
-		if (!res.isSuccess()) {
+		const res = merge(secondFileRead, this.fileContent, updatedContent, {
+			stringSeparator: "\n",
+		});
+		if (res.conflict) {
 			throw new Error(
 				"File has updated since we started editing, and we can't merge in the changes automatically",
 			);
 		}
+		const merged = res.result.join("\n");
 
 		logger.debug("Applying changes", {
 			updatedContent,
 			fileContent: this.fileContent,
-			res: res.joinedResults(),
+			merged,
 		});
 
-		await context.app.vault.modify(this.file, res.joinedResults() as string);
+		await context.app.vault.modify(this.file, merged);
 	}
 
 	/**
