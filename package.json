@@ -11,11 +11,11 @@
     "@biomejs/biome": "2.5.15",
     "@codemirror/state": "6.7.6",
     "@codemirror/view": "6.43.13",
-    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/git": "11.0.1",
     "@types/bun": "1.4.3",
     "esbuild": "0.28.2",
     "obsidian": "1.14.4",
-    "semantic-release": "^24.2.4",
+    "semantic-release": "25.0.9",
     "typescript": "7.0.2"
   },
   "description": "",
