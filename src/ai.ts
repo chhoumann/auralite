@@ -1,5 +1,4 @@
 import type OpenAI from "openai";
-import type { ClientOptions } from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 import type {
 	ChatCompletionCreateParamsNonStreaming,
@@ -350,9 +349,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 
 	async createOpenAIChatCompletion(
 		messages: Array<ChatCompletionMessageParam>,
-		options?: Partial<ClientOptions>,
-		useEditMode: boolean = false,
-		fileContent?: string,
+		predictedContent?: string,
 		modelOverride?: string,
 	) {
 		this.abortController = new AbortController();
@@ -364,10 +361,8 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 			pluginVersion: this.plugin.manifest?.version,
 		};
 		const telemetryOptions = {
-			editMode: useEditMode,
-			requestPayload: telemetry.isDebugMode()
-				? { messages, options }
-				: undefined,
+			editMode: !!predictedContent,
+			requestPayload: telemetry.isDebugMode() ? { messages } : undefined,
 		};
 		const model = modelOverride || this.plugin.settings.OPENAI_MODEL;
 		const requestId = telemetry.startRecording(
@@ -381,11 +376,9 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 			const params: ChatCompletionCreateParamsNonStreaming = {
 				messages,
 				model,
-				...options,
-				...(useEditMode &&
-					fileContent && {
-						prediction: { type: "content", content: fileContent },
-					}),
+				...(predictedContent && {
+					prediction: { type: "content", content: predictedContent },
+				}),
 			};
 			const response = await this.oai.chat.completions.create(params, {
 				signal: this.abortController.signal,
@@ -434,7 +427,6 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 
 	async createOpenAIChatCompletionStream(
 		messages: Array<ChatCompletionMessageParam>,
-		options?: Partial<ClientOptions>,
 	) {
 		this.abortController = new AbortController();
 
@@ -446,9 +438,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 		};
 		const telemetryOptions = {
 			isStreaming: true,
-			requestPayload: telemetry.isDebugMode()
-				? { messages, options }
-				: undefined,
+			requestPayload: telemetry.isDebugMode() ? { messages } : undefined,
 		};
 		const requestId = telemetry.startRecording(
 			this.plugin.settings.OPENAI_MODEL,
@@ -464,7 +454,6 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 					messages,
 					model: this.plugin.settings.OPENAI_MODEL,
 					stream: true,
-					...options,
 				},
 				{ signal: this.abortController.signal },
 			);

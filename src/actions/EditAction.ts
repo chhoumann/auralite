@@ -214,28 +214,11 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 			fileContent: this.fileContent,
 		});
 
-		const model = context.model;
-
-		if (useEditMode && this.fileContent) {
-			// Use edit mode
-			const response = await context.ai.createOpenAIChatCompletion(
-				msgs,
-				{},
-				true,
-				this.fileContent,
-				model,
-			);
-			// Type assertion to ensure response is treated as ChatCompletion
-			await this.performAction(response as ChatCompletion, context);
-		} else {
-			const response = await context.ai.createOpenAIChatCompletion(
-				msgs,
-				{},
-				false,
-				undefined,
-				model,
-			);
-			await this.performAction(response as ChatCompletion, context);
-		}
+		const response = await context.ai.createOpenAIChatCompletion(
+			msgs,
+			useEditMode ? this.fileContent : undefined,
+			context.model,
+		);
+		await this.performAction(response, context);
 	}
 }
