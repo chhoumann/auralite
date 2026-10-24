@@ -1,9 +1,9 @@
-import { renderTemplate } from "@/TemplateEngine";
+import { TFile } from "obsidian";
+import * as z from "zod/mini";
 import { logger } from "@/logging";
 import { openFile } from "@/obsidianUtils";
+import { renderTemplate } from "@/TemplateEngine";
 import { removeWhitespace } from "@/utils";
-import { TFile } from "obsidian";
-import { z } from "zod";
 import { Action, type ActionContext } from "./Action";
 
 export class CreateNoteAction extends Action<
@@ -14,29 +14,28 @@ export class CreateNoteAction extends Action<
 	static inputSchema = z.object({
 		noteName: z
 			.string()
-			.describe(
-				"The name of the note to create. Must be a valid markdown filename.",
+			.check(
+				z.describe(
+					"The name of the note to create. Must be a valid markdown filename.",
+				),
 			),
-		content: z.string().optional().describe("The content of the note."),
+		content: z
+			.nullable(z.string())
+			.check(z.describe("The content of the note.")),
 		paneType: z
-			.enum(["tab", "split", "window"])
-			.optional()
-			.default("tab")
-			.describe("The type of pane to open the file in."),
+			.nullable(z.enum(["tab", "split", "window"]))
+			.check(z.describe("The type of pane to open the file in.")),
 		direction: z
-			.enum(["horizontal", "vertical"])
-			.optional()
-			.describe("The direction to split the pane, if paneType is 'split'."),
+			.nullable(z.enum(["horizontal", "vertical"]))
+			.check(
+				z.describe("The direction to split the pane, if paneType is 'split'."),
+			),
 		mode: z
-			.enum(["source", "preview", "default"])
-			.optional()
-			.default("default")
-			.describe("The view mode to open the file in."),
+			.nullable(z.enum(["source", "preview", "default"]))
+			.check(z.describe("The view mode to open the file in.")),
 		focus: z
-			.boolean()
-			.optional()
-			.default(true)
-			.describe("Whether to focus the file after opening."),
+			.nullable(z.boolean())
+			.check(z.describe("Whether to focus the file after opening.")),
 	});
 
 	static systemPrompt =
@@ -146,10 +145,10 @@ export class CreateNoteAction extends Action<
 		const note = await context.app.vault.create(noteName, content);
 
 		openFile(context.app, note, {
-			paneType: input.paneType,
-			direction: input.direction,
-			mode: input.mode,
-			focus: input.focus,
+			paneType: input.paneType ?? "tab",
+			direction: input.direction ?? undefined,
+			mode: input.mode ?? "default",
+			focus: input.focus ?? true,
 		});
 
 		context.results.set(this.id, {

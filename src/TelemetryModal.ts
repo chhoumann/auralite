@@ -371,7 +371,10 @@ export class TelemetryModal extends Modal {
 		}
 		// Format: YYYY-MM
 		const [year, month] = period.split("-");
-		const date = new Date(Number.parseInt(year), Number.parseInt(month) - 1);
+		const date = new Date(
+			Number.parseInt(year, 10),
+			Number.parseInt(month, 10) - 1,
+		);
 		if (short) {
 			return date.toLocaleDateString(undefined, { month: "short" });
 		}

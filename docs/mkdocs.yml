@@ -30,7 +30,6 @@ theme:
       accent: grey
 
 plugins:
-  - social
   - search
 
 extra:

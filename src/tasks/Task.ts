@@ -1,9 +1,9 @@
+import type { EventRef } from "obsidian";
 import type AuralitePlugin from "@/main";
 import { TypedEvents } from "@/types/TypedEvents";
-import type { EventRef } from "obsidian";
 import type { AudioRecorder } from "../AudioRecorder";
-import type { ContextBuilder } from "../ContextBuilder";
 import type { AIManager } from "../ai";
+import type { ContextBuilder } from "../ContextBuilder";
 
 interface TaskEventMap {
 	taskStarted: () => void;

@@ -1,7 +1,7 @@
+import { MarkdownView, TFile } from "obsidian";
 import type { ActionContext, EditorState } from "@/actions/Action";
 import type { AIManager } from "@/ai";
 import type AuralitePlugin from "@/main";
-import { MarkdownView, TFile } from "obsidian";
 
 async function getActiveFileFormatted(plugin: AuralitePlugin) {
 	const file = plugin.app.workspace.getActiveFile();
@@ -48,7 +48,6 @@ export class ContextBuilder {
 			plugin: this.plugin,
 			oai: aiManager.getOpenAI(),
 			ai: aiManager,
-			client: aiManager.getInstructorClient(),
 			results: initialInput,
 			abortSignal: new AbortController().signal,
 			state: {

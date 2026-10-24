@@ -1,14 +1,14 @@
-import type { z } from "zod";
+import type * as z from "zod/mini";
 import type { Action, ActionContext } from "./Action";
 
 export class ActionManager {
-	private actions: Map<string, Action<z.AnyZodObject>> = new Map();
+	private actions: Map<string, Action<z.ZodMiniObject>> = new Map();
 
-	registerAction<T extends z.AnyZodObject>(action: Action<T>): void {
+	registerAction<T extends z.ZodMiniObject>(action: Action<T>): void {
 		this.actions.set(action.id, action);
 	}
 
-	getAction(id: string): Action<z.AnyZodObject> | undefined {
+	getAction(id: string): Action<z.ZodMiniObject> | undefined {
 		return this.actions.get(id);
 	}
 
@@ -16,7 +16,7 @@ export class ActionManager {
 		return Array.from(this.actions.keys());
 	}
 
-	getAllActions(): Action<z.AnyZodObject>[] {
+	getAllActions(): Action<z.ZodMiniObject>[] {
 		return Array.from(this.actions.values());
 	}
 

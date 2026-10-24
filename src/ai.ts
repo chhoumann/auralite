@@ -1,3 +1,10 @@
+import type OpenAI from "openai";
+import { zodResponseFormat } from "openai/helpers/zod";
+import type {
+	ChatCompletionCreateParamsNonStreaming,
+	ChatCompletionMessageParam,
+} from "openai/resources";
+import * as z from "zod/mini";
 import type { AudioRecording } from "@/AudioRecorder";
 import type { EditorState } from "@/actions/Action";
 import type AuralitePlugin from "@/main";
@@ -5,14 +12,8 @@ import { removeWhitespace } from "@/utils";
 import { flattenQuickAddChoices } from "@/utils/quickadd";
 import { generateRequestId, getOrCreateSessionId } from "@/utils/session";
 import { type TelemetryContext, withTelemetry } from "@/utils/withTelemetry";
-import type Instructor from "@instructor-ai/instructor";
-import type OpenAI from "openai";
-import type { ClientOptions } from "openai";
-import type { ChatCompletionMessageParam } from "openai/resources";
-import type { Stream } from "openai/streaming";
-import { z } from "zod";
+import { hasUsage } from "./api_types";
 import type { ContextBuilder } from "./ContextBuilder";
-import { hasUsage, isActionResponse } from "./api_types";
 import { logger } from "./logging";
 import { telemetry } from "./telemetry";
 import { TypedEvents } from "./types/TypedEvents";
@@ -34,7 +35,6 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 		private plugin: AuralitePlugin,
 		private actionIds: string[],
 		private oai: OpenAI,
-		private instructorClient: ReturnType<typeof Instructor>,
 		private contextBuilder: ContextBuilder,
 	) {
 		super();
@@ -42,10 +42,6 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 
 	getOpenAI(): OpenAI {
 		return this.oai;
-	}
-
-	getInstructorClient(): ReturnType<typeof Instructor> {
-		return this.instructorClient;
 	}
 
 	async transcribeAudio(audioData: AudioRecording): Promise<string> {
@@ -148,7 +144,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 			"run_operation",
 			this.plugin.settings.OPENAI_MODEL,
 			context,
-			async (requestId, ctx) => {
+			async (requestId, _ctx) => {
 				const actionsList = this.actionIds.map(
 					(actionId) =>
 						` - ${actionId}: ${this.plugin.actionManager?.getAction(actionId)?.description}`,
@@ -173,7 +169,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 				const actionSchema = z.object({
 					action: z
 						.enum(this.actionIds as [string, ...string[]])
-						.describe(actionsPrompt),
+						.check(z.describe(actionsPrompt)),
 					necessaryContexts: z
 						.array(
 							z.enum(
@@ -183,25 +179,25 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 								],
 							),
 						)
-						.optional()
-						.default([])
-						.describe(
-							`The necessary context to execute the action.\nOnly include the context that is necessary to execute the action.\nHere are the available contexts:\n${Object.entries(
-								possibleContexts,
-							)
-								.map(([key, value]) => `- ${key}: ${value}`)
-								.join("\n")}`,
+						.check(
+							z.describe(
+								`The necessary context to execute the action.\nOnly include the context that is necessary to execute the action.\nHere are the available contexts:\n${Object.entries(
+									possibleContexts,
+								)
+									.map(([key, value]) => `- ${key}: ${value}`)
+									.join("\n")}`,
+							),
 						),
 					useEditMode: z
-						.boolean()
-						.optional()
-						.default(this.plugin.settings.USE_EDIT_MODE_BY_DEFAULT)
-						.describe(
-							"Whether to use the edit mode for faster completions. Only set to true if this involves editing an existing file with moderate to substantial changes.",
+						.nullable(z.boolean())
+						.check(
+							z.describe(
+								"Whether to use the edit mode for faster completions. Only set to true if this involves editing an existing file with moderate to substantial changes. Use null if unsure.",
+							),
 						),
 				});
 
-				const response = await this.createInstructorChatCompletion(
+				const actionResult = await this.createStructuredChatCompletion(
 					actionSchema,
 					[
 						{
@@ -215,13 +211,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 					],
 				);
 
-				// Ensure response is an ActionResponse
-				if (!isActionResponse(response)) {
-					throw new Error("Invalid action response format");
-				}
-
-				const actionResult = response;
-				const necessaryContexts = actionResult.necessaryContexts ?? [];
+				const necessaryContexts = actionResult.necessaryContexts;
 
 				this.trigger("actionPlanned", actionResult.action, necessaryContexts);
 
@@ -245,10 +235,11 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 				);
 				input.set("userInput", userInput);
 
-				// Add edit mode flag if specified
-				if (actionResult.useEditMode !== undefined) {
-					input.set("useEditMode", actionResult.useEditMode);
-				}
+				input.set(
+					"useEditMode",
+					actionResult.useEditMode ??
+						this.plugin.settings.USE_EDIT_MODE_BY_DEFAULT,
+				);
 
 				logger.debug("input", { input });
 
@@ -280,44 +271,45 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 		);
 	}
 
-	async createInstructorChatCompletion<TSchema extends z.AnyZodObject>(
+	async createStructuredChatCompletion<TSchema extends z.ZodMiniObject>(
 		schema: TSchema,
 		messages: Array<ChatCompletionMessageParam>,
 		modelOverride?: string,
-	) {
+	): Promise<z.infer<TSchema>> {
 		this.abortController = new AbortController();
 
 		const context: TelemetryContext = {
 			sessionId: getOrCreateSessionId(),
-			actionId: "instructor_completion",
+			actionId: "structured_completion",
 			requestId: generateRequestId(),
 			pluginVersion: this.plugin.manifest?.version,
 		};
 		const options = {
-			requestPayload: { messages, schema: schema.description },
+			requestPayload: { messages },
 		};
 		const model = modelOverride || this.plugin.settings.OPENAI_MODEL;
 		const requestId = telemetry.startRecording(
 			model,
-			"instructor_completion",
+			"structured_completion",
 			context,
 			options,
 		);
 
 		try {
-			const response = await this.instructorClient.chat.completions.create(
+			const response = await this.oai.chat.completions.parse(
 				{
 					messages,
 					model,
-					response_model: {
-						schema: schema,
-						name: "User",
-					},
+					response_format: zodResponseFormat(schema, "response"),
 				},
 				{ signal: this.abortController.signal },
 			);
 
-			// Record token usage if available
+			const message = response.choices[0]?.message;
+			if (!message?.parsed) {
+				throw new Error(message?.refusal ?? "No structured output returned");
+			}
+
 			if (hasUsage(response)) {
 				telemetry.finishRecording(requestId, {
 					promptTokens: response.usage.prompt_tokens,
@@ -326,23 +318,18 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 					response: telemetry.isDebugMode() ? response : undefined,
 				});
 			} else {
-				// If usage info isn't available, estimate from the messages and response
-				const promptText = JSON.stringify(messages);
-				const responseText = JSON.stringify(response);
-				const promptTokens = telemetry.estimateTokenCount(promptText);
-				const completionTokens = telemetry.estimateTokenCount(responseText);
-
 				telemetry.finishRecording(requestId, {
-					promptTokens,
-					completionTokens,
+					promptTokens: telemetry.estimateTokenCount(JSON.stringify(messages)),
+					completionTokens: telemetry.estimateTokenCount(
+						JSON.stringify(message.parsed),
+					),
 					response: telemetry.isDebugMode() ? response : undefined,
 				});
 			}
 
-			return response;
+			return message.parsed as z.infer<TSchema>;
 		} catch (error: unknown) {
 			if (error instanceof Error) {
-				// Record the error in telemetry
 				telemetry.finishRecording(requestId, {
 					promptTokens: telemetry.estimateTokenCount(JSON.stringify(messages)),
 					completionTokens: 0,
@@ -360,90 +347,9 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 		}
 	}
 
-	async createInstructorChatCompletionStream<TSchema extends z.AnyZodObject>(
-		schema: TSchema,
-		messages: Array<ChatCompletionMessageParam>,
-		modelOverride?: string,
-	): Promise<Stream<z.infer<TSchema>>> {
-		this.abortController = new AbortController();
-
-		const context: TelemetryContext = {
-			sessionId: getOrCreateSessionId(),
-			actionId: "instructor_stream",
-			requestId: generateRequestId(),
-			pluginVersion: this.plugin.manifest?.version,
-		};
-		const options = {
-			isStreaming: true,
-			requestPayload: { messages, schema: schema.description },
-		};
-		const model = modelOverride || this.plugin.settings.OPENAI_MODEL;
-		const requestId = telemetry.startRecording(
-			model,
-			"instructor_stream",
-			context,
-			options,
-		);
-
-		try {
-			// Create the original stream
-			const originalStream =
-				await this.instructorClient.chat.completions.create(
-					{
-						messages,
-						model,
-						response_model: {
-							schema: schema,
-							name: "User",
-						},
-						stream: true,
-					},
-					{ signal: this.abortController.signal },
-				);
-
-			// Schedule telemetry recording for after stream completes
-			setTimeout(() => {
-				// Very crude estimate of token usage for streams
-				const promptTokens = telemetry.estimateTokenCount(
-					JSON.stringify(messages),
-				);
-				// For completions, we'll estimate based on the model (less accurate)
-				const completionTokens = Math.ceil(promptTokens * 1.5); // Rough estimate that completions are ~1.5x input size
-
-				telemetry.finishRecording(requestId, {
-					promptTokens,
-					completionTokens,
-					totalTokens: promptTokens + completionTokens,
-				});
-			}, 30000); // Wait 30 seconds to allow stream to complete
-
-			// Return the original stream without modification
-			return originalStream as unknown as Stream<z.infer<TSchema>>;
-		} catch (error: unknown) {
-			if (error instanceof Error) {
-				// Record the error in telemetry
-				telemetry.finishRecording(requestId, {
-					promptTokens: telemetry.estimateTokenCount(JSON.stringify(messages)),
-					completionTokens: 0,
-					error: error,
-				});
-
-				if (error.name === "AbortError") {
-					logger.error("Chat completion stream was cancelled", { error });
-					throw new Error("Chat completion stream cancelled");
-				}
-			}
-
-			logger.error("Error creating chat completion stream", { error });
-			throw new Error("Failed to create chat completion stream");
-		}
-	}
-
 	async createOpenAIChatCompletion(
 		messages: Array<ChatCompletionMessageParam>,
-		options?: Partial<ClientOptions>,
-		useEditMode: boolean = false,
-		fileContent?: string,
+		predictedContent?: string,
 		modelOverride?: string,
 	) {
 		this.abortController = new AbortController();
@@ -455,10 +361,8 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 			pluginVersion: this.plugin.manifest?.version,
 		};
 		const telemetryOptions = {
-			editMode: useEditMode,
-			requestPayload: telemetry.isDebugMode()
-				? { messages, options }
-				: undefined,
+			editMode: !!predictedContent,
+			requestPayload: telemetry.isDebugMode() ? { messages } : undefined,
 		};
 		const model = modelOverride || this.plugin.settings.OPENAI_MODEL;
 		const requestId = telemetry.startRecording(
@@ -469,67 +373,16 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 		);
 
 		try {
-			// Create base options
-			const baseOptions = {
+			const params: ChatCompletionCreateParamsNonStreaming = {
 				messages,
 				model,
-				...options,
+				...(predictedContent && {
+					prediction: { type: "content", content: predictedContent },
+				}),
 			};
-
-			// Add prediction for edit mode if enabled and file content is available
-			if (useEditMode && fileContent) {
-				// Custom interface to type the options properly
-				interface PredictionOptions extends Record<string, unknown> {
-					messages: Array<ChatCompletionMessageParam>;
-					model: string;
-					prediction: {
-						content: string;
-						type: string;
-					};
-				}
-
-				// Create options with prediction property
-				const optionsWithPrediction: PredictionOptions = {
-					...baseOptions,
-					prediction: {
-						content: fileContent,
-						type: "content",
-					},
-				};
-
-				const response = await this.oai.chat.completions.create(
-					optionsWithPrediction as unknown as OpenAI.ChatCompletionCreateParams,
-					{ signal: this.abortController.signal },
-				);
-
-				// Record token usage if available
-				if (hasUsage(response)) {
-					telemetry.finishRecording(requestId, {
-						promptTokens: response.usage.prompt_tokens,
-						completionTokens: response.usage.completion_tokens,
-						totalTokens: response.usage.total_tokens,
-						response: telemetry.isDebugMode() ? response : undefined,
-					});
-				} else {
-					// If usage info isn't available, estimate from the messages and response
-					const promptText = JSON.stringify(messages);
-					const responseText = JSON.stringify(response);
-
-					telemetry.finishRecording(requestId, {
-						promptTokens: telemetry.estimateTokenCount(promptText),
-						completionTokens: telemetry.estimateTokenCount(responseText),
-						response: telemetry.isDebugMode() ? response : undefined,
-					});
-				}
-
-				return response;
-			}
-
-			// Standard mode without prediction
-			const response = await this.oai.chat.completions.create(
-				baseOptions as OpenAI.ChatCompletionCreateParams,
-				{ signal: this.abortController.signal },
-			);
+			const response = await this.oai.chat.completions.create(params, {
+				signal: this.abortController.signal,
+			});
 
 			// Record token usage
 			if (hasUsage(response)) {
@@ -574,7 +427,6 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 
 	async createOpenAIChatCompletionStream(
 		messages: Array<ChatCompletionMessageParam>,
-		options?: Partial<ClientOptions>,
 	) {
 		this.abortController = new AbortController();
 
@@ -586,9 +438,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 		};
 		const telemetryOptions = {
 			isStreaming: true,
-			requestPayload: telemetry.isDebugMode()
-				? { messages, options }
-				: undefined,
+			requestPayload: telemetry.isDebugMode() ? { messages } : undefined,
 		};
 		const requestId = telemetry.startRecording(
 			this.plugin.settings.OPENAI_MODEL,
@@ -604,7 +454,6 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 					messages,
 					model: this.plugin.settings.OPENAI_MODEL,
 					stream: true,
-					...options,
 				},
 				{ signal: this.abortController.signal },
 			);

@@ -1,20 +1,13 @@
-import Instructor from "@instructor-ai/instructor";
-import { Plugin, TFile } from "obsidian";
 import type { App } from "obsidian";
+import { Plugin, TFile } from "obsidian";
 import OpenAI from "openai";
-import { AudioRecorder } from "./AudioRecorder";
 import type { AudioRecording } from "./AudioRecorder";
+import { AudioRecorder } from "./AudioRecorder";
 import {
 	type AuralitePluginSettings,
 	AuraliteSettingsTab,
 	DEFAULT_SETTINGS,
 } from "./AuraliteSettingsTab";
-import { ContextBuilder } from "./ContextBuilder";
-import {
-	SilenceDetection,
-	type SilenceDetectionOptions,
-} from "./SilenceDetection";
-import { TelemetryModal } from "./TelemetryModal";
 import { ActionManager } from "./actions/ActionManager";
 import { CreateNoteAction } from "./actions/CreateNoteAction";
 import { EditAction } from "./actions/EditAction";
@@ -23,9 +16,15 @@ import { QuickAddAction } from "./actions/QuickAddAction";
 import { TranscribeAction } from "./actions/TranscribeAction";
 import { WriteAction } from "./actions/WriteAction";
 import { AIManager } from "./ai";
+import { ContextBuilder } from "./ContextBuilder";
 import { registerCommands } from "./commands";
 import { logger } from "./logging";
 import { createRecordingFilename } from "./recordings";
+import {
+	SilenceDetection,
+	type SilenceDetectionOptions,
+} from "./SilenceDetection";
+import { TelemetryModal } from "./TelemetryModal";
 import { AssistantTask } from "./tasks/AssistantTask";
 import { TranscribeTask } from "./tasks/TranscribeTask";
 import { telemetry } from "./telemetry";
@@ -33,7 +32,7 @@ import { telemetry } from "./telemetry";
 declare const __IS_DEV__: boolean;
 
 export default class AuralitePlugin extends Plugin {
-	settings!: AuralitePluginSettings;
+	declare settings: AuralitePluginSettings;
 	actionManager!: ActionManager;
 	contextBuilder!: ContextBuilder;
 	private audioRecorder: AudioRecorder = new AudioRecorder();
@@ -79,7 +78,6 @@ export default class AuralitePlugin extends Plugin {
 			this,
 			this.actionManager.getAllActionIds(),
 			openAIClient,
-			Instructor({ client: openAIClient, mode: "TOOLS" }),
 			this.contextBuilder,
 		);
 	}
@@ -188,7 +186,7 @@ export default class AuralitePlugin extends Plugin {
 		if (this.settings.TELEMETRY_ENABLED) {
 			await telemetry.saveTokenUsage((telemetryData) => {
 				// Using bracket notation to avoid TypeScript index signature error
-				// biome-ignore lint/complexity/useLiteralKeys: <explanation>
+				// biome-ignore lint/complexity/useLiteralKeys: noPropertyAccessFromIndexSignature requires bracket access
 				dataToSave["telemetryData"] = telemetryData;
 				return this.saveData(dataToSave);
 			});

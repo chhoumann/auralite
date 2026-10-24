@@ -2,12 +2,13 @@
 	position: fixed;
 	bottom: 60px;
 	left: 50%;
-	transform: translateX(-50%);
 	z-index: 1000;
 	display: flex;
 	justify-content: center;
 	align-items: center;
-	transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+	transition:
+		opacity 0.3s ease-in-out,
+		transform 0.3s ease-in-out;
 	opacity: 0;
 	transform: translateX(-50%) translateY(20px);
 }
@@ -176,7 +177,9 @@
 	cursor: pointer;
 	color: var(--text-muted);
 	font-size: 1rem;
-	transition: background 0.15s, color 0.15s;
+	transition:
+		background 0.15s,
+		color 0.15s;
 	display: flex;
 	align-items: center;
 	gap: 6px;
@@ -202,7 +205,10 @@
 	cursor: pointer;
 	background: var(--background-modifier-hover);
 	color: var(--text-normal);
-	transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+	transition:
+		background 0.15s,
+		color 0.15s,
+		box-shadow 0.15s;
 	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 .auralite-diff-actions button.mod-cta {

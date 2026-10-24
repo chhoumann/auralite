@@ -1,15 +1,15 @@
-import { renderTemplate } from "@/TemplateEngine";
-import { DiffReviewView } from "@/components/DiffReviewView";
-import { logger } from "@/logging";
-import { removeWhitespace } from "@/utils";
-import { type Editor, MarkdownView, type TFile } from "obsidian";
 import type { WorkspaceLeaf } from "obsidian";
+import { type Editor, MarkdownView, type TFile } from "obsidian";
 import type {
 	ChatCompletion,
 	ChatCompletionMessageParam,
 } from "openai/resources";
-import { merge } from "three-way-merge";
-import { z } from "zod";
+import * as z from "zod/mini";
+import { DiffReviewView } from "@/components/DiffReviewView";
+import { extractUpdatedContent, mergeEdit } from "@/editContent";
+import { logger } from "@/logging";
+import { renderTemplate } from "@/TemplateEngine";
+import { removeWhitespace } from "@/utils";
 import { Action, type ActionContext } from "./Action";
 
 const prompt = removeWhitespace(`
@@ -111,8 +111,11 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 			throw new Error("No content found");
 		}
 
-		const updatedContent = this.extractUpdatedContent(content);
-		if (!updatedContent) {
+		const updatedContent = extractUpdatedContent(
+			content,
+			this.fileContent ?? "",
+		);
+		if (updatedContent === null) {
 			context.results.set(this.id, {
 				status: EditActionStatus.ERROR,
 				error: "No updated content found",
@@ -133,7 +136,7 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 						try {
 							await this.applyChanges(updatedContent, context);
 							resolve(EditActionStatus.APPLIED);
-						} catch (e) {
+						} catch (_e) {
 							resolve(EditActionStatus.ERROR);
 						}
 					})();
@@ -157,16 +160,6 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 		}
 	}
 
-	private extractUpdatedContent(responseContent: string): string | null {
-		const match = responseContent.match(
-			/<updated_content>([\s\S]*?)<\/updated_content>/,
-		);
-
-		logger.debug("Extracted updated content", { match });
-
-		return match ? match[1].trim() : null;
-	}
-
 	private async applyChanges(
 		updatedContent: string,
 		context: ActionContext,
@@ -177,8 +170,8 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 
 		const secondFileRead = await context.app.vault.read(this.file);
 
-		const res = merge(secondFileRead, this.fileContent, updatedContent);
-		if (!res.isSuccess()) {
+		const merged = mergeEdit(secondFileRead, this.fileContent, updatedContent);
+		if (merged === null) {
 			throw new Error(
 				"File has updated since we started editing, and we can't merge in the changes automatically",
 			);
@@ -187,10 +180,10 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 		logger.debug("Applying changes", {
 			updatedContent,
 			fileContent: this.fileContent,
-			res: res.joinedResults(),
+			merged,
 		});
 
-		await context.app.vault.modify(this.file, res.joinedResults() as string);
+		await context.app.vault.modify(this.file, merged);
 	}
 
 	/**
@@ -221,55 +214,11 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 			fileContent: this.fileContent,
 		});
 
-		const model = context.model;
-
-		if (useEditMode && this.fileContent) {
-			// Use edit mode
-			const response = await context.ai.createOpenAIChatCompletion(
-				msgs,
-				{},
-				true,
-				this.fileContent,
-				model,
-			);
-			// Type assertion to ensure response is treated as ChatCompletion
-			await this.performAction(response as ChatCompletion, context);
-		} else {
-			// Use standard mode (calling the parent implementation)
-			if (this.useInstructor) {
-				if (this.supportsStreaming) {
-					const stream = await context.ai.createInstructorChatCompletionStream(
-						this.inputSchema,
-						msgs,
-						model,
-					);
-					await this.performActionStream(stream, context);
-				} else {
-					const input = await context.ai.createInstructorChatCompletion(
-						this.inputSchema,
-						msgs,
-						model,
-					);
-					// Type assertion to match expected parameter type
-					await this.performAction(input as unknown as ChatCompletion, context);
-				}
-			} else {
-				if (this.supportsStreaming) {
-					const stream =
-						await context.ai.createOpenAIChatCompletionStream(msgs);
-					await this.performActionStream(stream, context);
-				} else {
-					const response = await context.ai.createOpenAIChatCompletion(
-						msgs,
-						{},
-						false,
-						undefined,
-						model,
-					);
-					// Type assertion to ensure response is treated as ChatCompletion
-					await this.performAction(response as ChatCompletion, context);
-				}
-			}
-		}
+		const response = await context.ai.createOpenAIChatCompletion(
+			msgs,
+			useEditMode ? this.fileContent : undefined,
+			context.model,
+		);
+		await this.performAction(response, context);
 	}
 }

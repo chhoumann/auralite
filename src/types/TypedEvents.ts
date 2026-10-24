@@ -10,7 +10,7 @@ export class TypedEvents<T> extends Events {
 	 */
 	readonly __events!: T;
 
-	// @ts-ignore
+	// @ts-expect-error
 	override on<K extends keyof T>(
 		event: K,
 		// biome-ignore lint/suspicious/noExplicitAny: Allow any type in this file
@@ -20,7 +20,7 @@ export class TypedEvents<T> extends Events {
 		return super.on(event as string, callback, ctx);
 	}
 
-	// @ts-ignore
+	// @ts-expect-error
 	override off<K extends keyof T>(
 		event: K,
 		// biome-ignore lint/suspicious/noExplicitAny: Allow any type in this file
@@ -29,7 +29,7 @@ export class TypedEvents<T> extends Events {
 		super.off(event as string, callback);
 	}
 
-	// @ts-ignore
+	// @ts-expect-error
 	override trigger<K extends keyof T>(
 		event: K,
 		...args: T[K] extends (...args: infer P) => void ? P : never
