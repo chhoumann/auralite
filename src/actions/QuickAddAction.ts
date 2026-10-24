@@ -111,24 +111,11 @@ export class QuickAddAction extends Action<typeof QuickAddAction.inputSchema> {
 			choiceName: z.enum(allFullPaths as [string, ...string[]]),
 		});
 		const selectionPrompt = `Select the best matching QuickAdd action from the following list (use the exact full path). Only output a JSON object with { "choiceName": ... }:\n${allFullPaths.join("\n")}`;
-		const selection = await context.ai.createStructuredChatCompletion(
-			selectionSchema,
-			[
+		const { choiceName: selectedChoiceName } =
+			await context.ai.createStructuredChatCompletion(selectionSchema, [
 				{ role: "system", content: selectionPrompt },
 				{ role: "user", content: input.userRequest },
-			],
-		);
-		// Type guard: ensure selection has choiceName
-		const selectedChoiceName = (selection as { choiceName?: string })
-			.choiceName;
-		if (!selectedChoiceName) {
-			logger.error("LLM did not return a valid choiceName.");
-			results.set(this.id, {
-				status: "error",
-				error: "LLM did not return a valid choiceName.",
-			});
-			throw new Error("LLM did not return a valid choiceName.");
-		}
+			]);
 		const selected = allChoices.find((c) => c.fullPath === selectedChoiceName);
 		if (!selected) {
 			logger.error(
@@ -154,17 +141,11 @@ export class QuickAddAction extends Action<typeof QuickAddAction.inputSchema> {
 
 		let variables: Record<string, unknown> = {};
 		if (variableNames.length > 0) {
-			// Build a stricter Zod schema if variable names are known
-			let variableSchema: z.ZodMiniObject;
-			if (variableNames.length > 0) {
-				const shape: Record<string, z.ZodMiniString> = {};
-				for (const name of variableNames) {
-					shape[name] = z.string();
-				}
-				variableSchema = z.object(shape);
-			} else {
-				variableSchema = z.object({});
+			const shape: Record<string, z.ZodMiniString> = {};
+			for (const name of variableNames) {
+				shape[name] = z.string();
 			}
+			const variableSchema = z.object(shape);
 
 			// Build a rich, context-aware prompt for variable generation
 			const variableDescriptions = variableNames
