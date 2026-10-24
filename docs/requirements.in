@@ -1,0 +1,5 @@
+mkdocs<2
+mkdocs-material
+pymdown-extensions
+# GHSA-6q48-6c7w-9gw2: emSign roots removed
+certifi>=2026.10.19
