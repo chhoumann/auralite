@@ -1,7 +1,7 @@
 import { logger } from "@/logging";
 import { removeWhitespace } from "@/utils";
 import { type QuickAddChoice, flattenQuickAddChoices } from "@/utils/quickadd";
-import { z } from "zod";
+import * as z from "zod/mini";
 import { Action, type ActionContext } from "./Action";
 
 // Utility: Extract variable names from a string (supports {{VALUE}} and {{VALUE:varName}})
@@ -56,7 +56,9 @@ export class QuickAddAction extends Action<typeof QuickAddAction.inputSchema> {
 	static inputSchema = z.object({
 		userRequest: z
 			.string()
-			.describe("The user's request or intent for the QuickAdd action."),
+			.check(
+				z.describe("The user's request or intent for the QuickAdd action."),
+			),
 	});
 
 	static systemPrompt = removeWhitespace(`
@@ -153,9 +155,9 @@ export class QuickAddAction extends Action<typeof QuickAddAction.inputSchema> {
 		let variables: Record<string, unknown> = {};
 		if (variableNames.length > 0) {
 			// Build a stricter Zod schema if variable names are known
-			let variableSchema: z.AnyZodObject;
+			let variableSchema: z.ZodMiniObject;
 			if (variableNames.length > 0) {
-				const shape: Record<string, z.ZodString> = {};
+				const shape: Record<string, z.ZodMiniString> = {};
 				for (const name of variableNames) {
 					shape[name] = z.string();
 				}

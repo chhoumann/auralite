@@ -3,7 +3,7 @@ import { logger } from "@/logging";
 import { openFile } from "@/obsidianUtils";
 import { removeWhitespace } from "@/utils";
 import { TFile } from "obsidian";
-import { z } from "zod";
+import * as z from "zod/mini";
 import { Action, type ActionContext } from "./Action";
 
 export class CreateNoteAction extends Action<
@@ -14,26 +14,28 @@ export class CreateNoteAction extends Action<
 	static inputSchema = z.object({
 		noteName: z
 			.string()
-			.describe(
-				"The name of the note to create. Must be a valid markdown filename.",
+			.check(
+				z.describe(
+					"The name of the note to create. Must be a valid markdown filename.",
+				),
 			),
-		content: z.string().nullable().describe("The content of the note."),
+		content: z
+			.nullable(z.string())
+			.check(z.describe("The content of the note.")),
 		paneType: z
-			.enum(["tab", "split", "window"])
-			.nullable()
-			.describe("The type of pane to open the file in."),
+			.nullable(z.enum(["tab", "split", "window"]))
+			.check(z.describe("The type of pane to open the file in.")),
 		direction: z
-			.enum(["horizontal", "vertical"])
-			.nullable()
-			.describe("The direction to split the pane, if paneType is 'split'."),
+			.nullable(z.enum(["horizontal", "vertical"]))
+			.check(
+				z.describe("The direction to split the pane, if paneType is 'split'."),
+			),
 		mode: z
-			.enum(["source", "preview", "default"])
-			.nullable()
-			.describe("The view mode to open the file in."),
+			.nullable(z.enum(["source", "preview", "default"]))
+			.check(z.describe("The view mode to open the file in.")),
 		focus: z
-			.boolean()
-			.nullable()
-			.describe("Whether to focus the file after opening."),
+			.nullable(z.boolean())
+			.check(z.describe("Whether to focus the file after opening.")),
 	});
 
 	static systemPrompt =

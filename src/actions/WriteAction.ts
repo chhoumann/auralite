@@ -5,7 +5,7 @@ import { getOpenAIChatStreamProcessor } from "@/utils";
 import { type Editor, type EditorPosition, MarkdownView } from "obsidian";
 import type { ChatCompletion, ChatCompletionChunk } from "openai/resources";
 import type { Stream } from "openai/streaming";
-import { z } from "zod";
+import * as z from "zod/mini";
 import { Action, type ActionContext } from "./Action";
 
 export class WriteAction extends Action<typeof WriteAction.inputSchema> {

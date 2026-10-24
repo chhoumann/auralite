@@ -9,7 +9,7 @@ import type {
 	ChatCompletion,
 	ChatCompletionMessageParam,
 } from "openai/resources";
-import { z } from "zod";
+import * as z from "zod/mini";
 import { Action, type ActionContext } from "./Action";
 
 const prompt = removeWhitespace(`

@@ -1,5 +1,5 @@
 import { logger } from "@/logging";
-import { z } from "zod";
+import * as z from "zod/mini";
 import { Action, type ActionContext } from "./Action";
 
 export class NoopAction extends Action<typeof NoopAction.inputSchema> {

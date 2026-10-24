@@ -4,7 +4,7 @@ import { createStreamingInserter } from "@/utils";
 import { type Editor, type EditorPosition, MarkdownView } from "obsidian";
 import type { ChatCompletion, ChatCompletionChunk } from "openai/resources";
 import type { Stream } from "openai/streaming";
-import { z } from "zod";
+import * as z from "zod/mini";
 import { Action, type ActionContext } from "./Action";
 
 export class TranscribeAction extends Action<
@@ -16,7 +16,7 @@ export class TranscribeAction extends Action<
 	static inputSchema = z.object({
 		transcription: z
 			.string()
-			.describe("The formatted transcription of the audio."),
+			.check(z.describe("The formatted transcription of the audio.")),
 	});
 
 	static systemPrompt =

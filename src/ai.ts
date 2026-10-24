@@ -8,8 +8,11 @@ import { type TelemetryContext, withTelemetry } from "@/utils/withTelemetry";
 import type OpenAI from "openai";
 import type { ClientOptions } from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
-import type { ChatCompletionMessageParam } from "openai/resources";
-import { z } from "zod";
+import type {
+	ChatCompletionCreateParamsNonStreaming,
+	ChatCompletionMessageParam,
+} from "openai/resources";
+import * as z from "zod/mini";
 import type { ContextBuilder } from "./ContextBuilder";
 import { hasUsage } from "./api_types";
 import { logger } from "./logging";
@@ -167,7 +170,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 				const actionSchema = z.object({
 					action: z
 						.enum(this.actionIds as [string, ...string[]])
-						.describe(actionsPrompt),
+						.check(z.describe(actionsPrompt)),
 					necessaryContexts: z
 						.array(
 							z.enum(
@@ -177,18 +180,21 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 								],
 							),
 						)
-						.describe(
-							`The necessary context to execute the action.\nOnly include the context that is necessary to execute the action.\nHere are the available contexts:\n${Object.entries(
-								possibleContexts,
-							)
-								.map(([key, value]) => `- ${key}: ${value}`)
-								.join("\n")}`,
+						.check(
+							z.describe(
+								`The necessary context to execute the action.\nOnly include the context that is necessary to execute the action.\nHere are the available contexts:\n${Object.entries(
+									possibleContexts,
+								)
+									.map(([key, value]) => `- ${key}: ${value}`)
+									.join("\n")}`,
+							),
 						),
 					useEditMode: z
-						.boolean()
-						.nullable()
-						.describe(
-							"Whether to use the edit mode for faster completions. Only set to true if this involves editing an existing file with moderate to substantial changes. Use null if unsure.",
+						.nullable(z.boolean())
+						.check(
+							z.describe(
+								"Whether to use the edit mode for faster completions. Only set to true if this involves editing an existing file with moderate to substantial changes. Use null if unsure.",
+							),
 						),
 				});
 
@@ -266,7 +272,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 		);
 	}
 
-	async createStructuredChatCompletion<TSchema extends z.AnyZodObject>(
+	async createStructuredChatCompletion<TSchema extends z.ZodMiniObject>(
 		schema: TSchema,
 		messages: Array<ChatCompletionMessageParam>,
 		modelOverride?: string,
@@ -280,7 +286,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 			pluginVersion: this.plugin.manifest?.version,
 		};
 		const options = {
-			requestPayload: { messages, schema: schema.description },
+			requestPayload: { messages },
 		};
 		const model = modelOverride || this.plugin.settings.OPENAI_MODEL;
 		const requestId = telemetry.startRecording(
@@ -322,7 +328,7 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 				});
 			}
 
-			return message.parsed;
+			return message.parsed as z.infer<TSchema>;
 		} catch (error: unknown) {
 			if (error instanceof Error) {
 				telemetry.finishRecording(requestId, {
@@ -372,67 +378,18 @@ export class AIManager extends TypedEvents<AIManagerEvents> {
 		);
 
 		try {
-			// Create base options
-			const baseOptions = {
+			const params: ChatCompletionCreateParamsNonStreaming = {
 				messages,
 				model,
 				...options,
+				...(useEditMode &&
+					fileContent && {
+						prediction: { type: "content", content: fileContent },
+					}),
 			};
-
-			// Add prediction for edit mode if enabled and file content is available
-			if (useEditMode && fileContent) {
-				// Custom interface to type the options properly
-				interface PredictionOptions extends Record<string, unknown> {
-					messages: Array<ChatCompletionMessageParam>;
-					model: string;
-					prediction: {
-						content: string;
-						type: string;
-					};
-				}
-
-				// Create options with prediction property
-				const optionsWithPrediction: PredictionOptions = {
-					...baseOptions,
-					prediction: {
-						content: fileContent,
-						type: "content",
-					},
-				};
-
-				const response = await this.oai.chat.completions.create(
-					optionsWithPrediction as unknown as OpenAI.ChatCompletionCreateParams,
-					{ signal: this.abortController.signal },
-				);
-
-				// Record token usage if available
-				if (hasUsage(response)) {
-					telemetry.finishRecording(requestId, {
-						promptTokens: response.usage.prompt_tokens,
-						completionTokens: response.usage.completion_tokens,
-						totalTokens: response.usage.total_tokens,
-						response: telemetry.isDebugMode() ? response : undefined,
-					});
-				} else {
-					// If usage info isn't available, estimate from the messages and response
-					const promptText = JSON.stringify(messages);
-					const responseText = JSON.stringify(response);
-
-					telemetry.finishRecording(requestId, {
-						promptTokens: telemetry.estimateTokenCount(promptText),
-						completionTokens: telemetry.estimateTokenCount(responseText),
-						response: telemetry.isDebugMode() ? response : undefined,
-					});
-				}
-
-				return response;
-			}
-
-			// Standard mode without prediction
-			const response = await this.oai.chat.completions.create(
-				baseOptions as OpenAI.ChatCompletionCreateParams,
-				{ signal: this.abortController.signal },
-			);
+			const response = await this.oai.chat.completions.create(params, {
+				signal: this.abortController.signal,
+			});
 
 			// Record token usage
 			if (hasUsage(response)) {

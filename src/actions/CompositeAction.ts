@@ -1,14 +1,14 @@
-import { z } from "zod";
+import * as z from "zod/mini";
 import { Action, type ActionContext } from "./Action";
 
-export class CompositeAction extends Action<z.AnyZodObject> {
+export class CompositeAction extends Action<z.ZodMiniObject> {
 	readonly description = "Execute multiple actions in sequence or in parallel.";
 
-	private actions: Action<z.AnyZodObject>[];
+	private actions: Action<z.ZodMiniObject>[];
 
 	constructor(
 		id: string,
-		actions: Action<z.AnyZodObject>[],
+		actions: Action<z.ZodMiniObject>[],
 		private parallel = false,
 	) {
 		super(id, z.object({}), "");
@@ -36,7 +36,7 @@ export class CompositeAction extends Action<z.AnyZodObject> {
 	}
 
 	protected async performAction(
-		_input: z.infer<z.AnyZodObject>,
+		_input: z.infer<z.ZodMiniObject>,
 		_context: ActionContext,
 	): Promise<void> {}
 }

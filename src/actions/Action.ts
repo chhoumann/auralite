@@ -10,7 +10,7 @@ import type {
 	ChatCompletionMessageParam,
 } from "openai/resources";
 import type { Stream } from "openai/streaming";
-import type { z } from "zod";
+import type * as z from "zod/mini";
 
 export type EditorState = {
 	activeView: View;
@@ -41,7 +41,7 @@ export interface ActionContext {
 	model?: string;
 }
 
-export abstract class Action<TInput extends z.AnyZodObject> {
+export abstract class Action<TInput extends z.ZodMiniObject> {
 	abstract readonly description: string;
 
 	/**
