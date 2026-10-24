@@ -6,6 +6,10 @@ updates:
       interval: monthly
     cooldown:
       default-days: 7
+    # Pinned to the peer versions the obsidian package declares; Obsidian provides them at runtime.
+    ignore:
+      - dependency-name: "@codemirror/state"
+      - dependency-name: "@codemirror/view"
     groups:
       dependencies:
         patterns: ["*"]
