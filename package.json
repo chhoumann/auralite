@@ -35,10 +35,10 @@
   },
   "type": "commonjs",
   "dependencies": {
-    "@codemirror/basic-setup": "^0.20.0",
-    "@codemirror/lang-markdown": "^6.3.2",
-    "@codemirror/merge": "^6.10.1",
+    "@codemirror/lang-markdown": "6.5.2",
+    "@codemirror/merge": "6.12.2",
     "@instructor-ai/instructor": "^1.7.0",
+    "codemirror": "6.0.2",
     "openai": "^4.100.0",
     "three-way-merge": "^0.1.0",
     "zod": "^3.24.4"

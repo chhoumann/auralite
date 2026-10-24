@@ -1,7 +1,7 @@
-import { basicSetup } from "@codemirror/basic-setup";
 import { markdown } from "@codemirror/lang-markdown";
 import { MergeView } from "@codemirror/merge";
 import { EditorView } from "@codemirror/view";
+import { basicSetup } from "codemirror";
 import { ItemView, MarkdownRenderer, setIcon } from "obsidian";
 import type { WorkspaceLeaf as ObsidianWorkspaceLeaf } from "obsidian";
 
