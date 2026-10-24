@@ -1,4 +1,3 @@
-import { merge } from "node-diff3";
 import type { WorkspaceLeaf } from "obsidian";
 import { type Editor, MarkdownView, type TFile } from "obsidian";
 import type {
@@ -7,6 +6,7 @@ import type {
 } from "openai/resources";
 import * as z from "zod/mini";
 import { DiffReviewView } from "@/components/DiffReviewView";
+import { extractUpdatedContent, mergeEdit } from "@/editContent";
 import { logger } from "@/logging";
 import { renderTemplate } from "@/TemplateEngine";
 import { removeWhitespace } from "@/utils";
@@ -111,8 +111,11 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 			throw new Error("No content found");
 		}
 
-		const updatedContent = this.extractUpdatedContent(content);
-		if (!updatedContent) {
+		const updatedContent = extractUpdatedContent(
+			content,
+			this.fileContent ?? "",
+		);
+		if (updatedContent === null) {
 			context.results.set(this.id, {
 				status: EditActionStatus.ERROR,
 				error: "No updated content found",
@@ -157,16 +160,6 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 		}
 	}
 
-	private extractUpdatedContent(responseContent: string): string | null {
-		const match = responseContent.match(
-			/<updated_content>([\s\S]*?)<\/updated_content>/,
-		);
-
-		logger.debug("Extracted updated content", { match });
-
-		return match ? match[1].trim() : null;
-	}
-
 	private async applyChanges(
 		updatedContent: string,
 		context: ActionContext,
@@ -177,15 +170,12 @@ export class EditAction extends Action<typeof EditAction.inputSchema> {
 
 		const secondFileRead = await context.app.vault.read(this.file);
 
-		const res = merge(secondFileRead, this.fileContent, updatedContent, {
-			stringSeparator: "\n",
-		});
-		if (res.conflict) {
+		const merged = mergeEdit(secondFileRead, this.fileContent, updatedContent);
+		if (merged === null) {
 			throw new Error(
 				"File has updated since we started editing, and we can't merge in the changes automatically",
 			);
 		}
-		const merged = res.result.join("\n");
 
 		logger.debug("Applying changes", {
 			updatedContent,
