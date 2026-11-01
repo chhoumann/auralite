@@ -8,11 +8,11 @@
   },
   "main": "main.js",
   "devDependencies": {
-    "@biomejs/biome": "2.5.15",
+    "@biomejs/biome": "2.6.3",
     "@codemirror/state": "6.7.6",
     "@codemirror/view": "6.43.13",
     "@semantic-release/git": "11.0.1",
-    "@types/bun": "1.4.3",
+    "@types/bun": "1.4.4",
     "esbuild": "0.28.2",
     "obsidian": "1.14.4",
     "semantic-release": "25.0.9",
@@ -34,10 +34,10 @@
   "type": "commonjs",
   "dependencies": {
     "@codemirror/lang-markdown": "6.5.2",
-    "@codemirror/merge": "6.12.2",
+    "@codemirror/merge": "6.12.3",
     "codemirror": "6.0.2",
     "node-diff3": "3.2.1",
-    "openai": "7.36.0",
+    "openai": "7.43.0",
     "zod": "4.6.7"
   }
 }
